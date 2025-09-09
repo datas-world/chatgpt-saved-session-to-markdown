@@ -1,0 +1,89 @@
+# Copyright (C) 2025 Torsten Knodt and contributors
+# GNU General Public License
+# SPDX-License-Identifier: GPL-3.0-or-later
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "chatgpt-saved-session-to-markdown"
+dynamic = ["version"]
+description = "Convert ChatGPT HTML/MHTML/PDF exports to clean Markdown dialogues."
+readme = "README.md"
+license = { text = "GPL-3.0-or-later" }
+requires-python = ">=3.12"
+authors = [{ name = "Torsten Knodt", email = "torsten.knodt+com.github.datas-world.chatgpt-saved-session-to-markdown@datas-world.de" }]
+keywords = ["chatgpt", "markdown", "html", "mhtml", "pdf", "export", "cli"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
+    "Environment :: Console",
+    "Intended Audience :: End Users/Desktop",
+    "Topic :: Text Processing :: Markup :: Markdown",
+]
+
+dependencies = [
+    "beautifulsoup4>=4.12.0",
+    "lxml>=5.0.0",
+    "typer>=0.12.3",
+    "rich>=13.0.0",
+    "PyPDF2>=3.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-cov>=5.0.0",
+    "mypy>=1.10.0",
+    "ruff>=0.5.0",
+    "black>=24.0.0",
+    "isort>=5.13.0",
+    "bandit>=1.7.7",
+    "pydocstyle>=6.3.0",
+    "interrogate>=1.7.0",
+    "pre-commit>=3.7.0",
+    "semver>=3.0.0",
+]
+
+[project.scripts]
+chatgpt-saved-session-to-markdown = "chat_export_md.cli:app"
+
+[tool.hatch.version]
+path = "src/chat_export_md/__init__.py"
+
+[tool.black]
+line-length = 100
+
+[tool.isort]
+profile = "black"
+
+[tool.ruff]
+line-length = 100
+select = ["E","F","I","B","UP","N","D","TID","C4","SIM","PLC","PLE","PLW","RUF"]
+ignore = []
+target-version = "py312"
+
+[tool.ruff.pydocstyle]
+convention = "google"
+
+[tool.mypy]
+python_version = "3.12"
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_return_any = true
+warn_unreachable = true
+strict_equality = true
+plugins = []
+
+[tool.interrogate]
+fail-under = 100
+verbose = 1
+exclude = ["tests", "docs"]
