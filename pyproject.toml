@@ -54,6 +54,9 @@ chatgpt-saved-session-to-markdown = "chat_export_md.cli:app"
 [tool.hatch.version]
 path = "src/chat_export_md/__init__.py"
 
+[tool.hatch.build.targets.wheel]
+packages = ["src/chat_export_md"]
+
 [tool.black]
 line-length = 100
 
