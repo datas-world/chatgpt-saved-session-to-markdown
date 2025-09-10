@@ -20,7 +20,7 @@ from pathlib import Path
 
 import pypdf
 from bs4 import BeautifulSoup, Tag
-from markdownify import markdownify as _md  # type: ignore[import-untyped]
+from markdownify import markdownify as _md  # type: ignore[import-not-found]
 
 LOGGER = logging.getLogger(__name__)
 
@@ -233,7 +233,7 @@ def try_extract_messages_with_roles(html: str) -> list[tuple[str, str]] | None:
     # Heuristic class-based
     candidates = soup.find_all(["div", "section", "article"], class_=True)
     for el in candidates:
-        if not hasattr(el, "get"):
+        if not isinstance(el, Tag):
             continue
         # Elements from find_all with specific tag names are always Tag objects
         class_raw = el.get("class", None)
