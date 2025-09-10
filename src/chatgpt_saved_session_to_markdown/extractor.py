@@ -20,7 +20,7 @@ from pathlib import Path
 
 import pypdf
 from bs4 import BeautifulSoup, Tag
-from markdownify import markdownify as _md  # type: ignore[import-not-found]
+from markdownify import markdownify as _md  # type: ignore[import-untyped]
 
 LOGGER = logging.getLogger(__name__)
 
@@ -141,6 +141,9 @@ def _resolve_embeds(
         return html
     soup = BeautifulSoup(html, "lxml")
     for tag in soup.find_all(["img", "a", "source"]):
+        # Type narrowing: find_all with specific tag names returns Tag objects
+        if not isinstance(tag, Tag):
+            continue
         if not hasattr(tag, "name") or not hasattr(tag, "get"):
             continue
         attr = "src" if tag.name != "a" else "href"
@@ -232,9 +235,7 @@ def try_extract_messages_with_roles(html: str) -> list[tuple[str, str]] | None:
     for el in candidates:
         if not hasattr(el, "get"):
             continue
-        # Type narrowing: elements from find_all with specific tag names are Tag objects
-        if not isinstance(el, Tag):
-            continue
+        # Elements from find_all with specific tag names are always Tag objects
         class_raw = el.get("class", None)
         if class_raw is None:
             continue
