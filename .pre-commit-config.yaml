@@ -1,4 +1,6 @@
-# … header …
+# Copyright (C) 2025 Torsten Knodt and contributors
+# GNU General Public License
+# SPDX-License-Identifier: GPL-3.0-or-later
 
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
@@ -91,5 +93,5 @@ repos:
     rev: v2.9.0
     hooks:
       - id: pip-audit
-        args: ["-r", "pyproject.toml", "--require-hashes=false"]
+        args: ["-r", "pyproject.toml"]
         additional_dependencies: []
