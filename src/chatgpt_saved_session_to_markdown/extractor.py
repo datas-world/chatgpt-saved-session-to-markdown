@@ -45,7 +45,8 @@ def _warn_better_format_guess_for_html(html: str) -> None:
     elif role_markers == 0 and img_http >= 5:
         LOGGER.warning(
             "HTML has many external images but no clear chat role markers. "
-            "An MHTML export often preserves inline assets better. Consider MHTML if available."
+            "An MHTML export often preserves inline assets better. "
+            "Consider MHTML if available."
         )
 
 def _warn_better_format_guess_for_mhtml(
@@ -78,7 +79,9 @@ def _warn_better_format_guess_for_pdf(pages_extracted: int, text_len: int) -> No
 # MHTML parsing & in-memory resource embedding                                 #
 # --------------------------------------------------------------------------- #
 
-def _build_resource_map_from_mhtml(path: Path) -> tuple[list[str], dict[str, tuple[str, bytes]]]:
+def _build_resource_map_from_mhtml(
+    path: Path,
+) -> tuple[list[str], dict[str, tuple[str, bytes]]]:
     """Return (html_parts, resources) from an MHTML file; no temp files."""
     html_parts: list[str] = []
     resources: dict[str, tuple[str, bytes]] = {}
@@ -99,7 +102,9 @@ def _build_resource_map_from_mhtml(path: Path) -> tuple[list[str], dict[str, tup
                 continue
             if ctype.startswith("text/html"):
                 try:
-                    text = payload.decode(sub.get_content_charset() or "utf-8", errors="replace")
+                    text = payload.decode(
+                        sub.get_content_charset() or "utf-8", errors="replace"
+                    )
                 except Exception:
                     text = payload.decode("utf-8", errors="replace")
                 html_parts.append(text)
@@ -119,7 +124,9 @@ def _build_resource_map_from_mhtml(path: Path) -> tuple[list[str], dict[str, tup
                 payload = payload.encode("utf-8")
             if isinstance(payload, bytes):
                 html_parts.append(
-                    payload.decode(msg.get_content_charset() or "utf-8", errors="replace")
+                    payload.decode(
+                        msg.get_content_charset() or "utf-8", errors="replace"
+                    )
                 )
     return html_parts, resources
 
@@ -169,7 +176,18 @@ def _html_to_markdown(html: str) -> str:
         escape_underscores=False,
         bullets="*",
         strip=None,
-        convert=["a", "img", "table", "thead", "tbody", "tr", "th", "td", "pre", "code"],
+        convert=[
+            "a",
+            "img",
+            "table",
+            "thead",
+            "tbody",
+            "tr",
+            "th",
+            "td",
+            "pre",
+            "code",
+        ],
     )
     # Normalize excessive blank lines a bit
     md = re.sub(r"\n{3,}", "\n\n", md).strip() + "\n"
@@ -198,7 +216,10 @@ def try_extract_messages_with_roles(html: str) -> list[tuple[str, str]] | None:
             role = str(role_raw).strip().lower()
         if role in {"user", "assistant", "system", "gpt"}:
             content = (
-                el.select_one(".markdown, .prose, .message-content, [data-message-content]") or el
+                el.select_one(
+                    ".markdown, .prose, .message-content, [data-message-content]"
+                )
+                or el
             )
             if hasattr(content, "decode_contents"):
                 body_html = content.decode_contents()
@@ -239,7 +260,9 @@ def try_extract_messages_with_roles(html: str) -> list[tuple[str, str]] | None:
         return out
 
     # ARIA/data-role hints
-    for el in soup.select('[aria-label*="User" i], [aria-label*="Assistant" i], [data-role]'):
+    for el in soup.select(
+        '[aria-label*="User" i], [aria-label*="Assistant" i], [data-role]'
+    ):
         if not hasattr(el, "get"):
             continue
         aria_raw = el.get("aria-label")
@@ -266,7 +289,9 @@ def try_extract_messages_with_roles(html: str) -> list[tuple[str, str]] | None:
     return out or None
 
 def dialogue_html_to_md(
-    html: str, resources: dict[str, tuple[str, bytes]] | None = None, log_prefix: str = ""
+    html: str,
+    resources: dict[str, tuple[str, bytes]] | None = None,
+    log_prefix: str = "",
 ) -> str:
     """Try role-bucketed rendering; fall back to full-page rendering."""
     html_inlined = _resolve_embeds(html, resources, log_prefix=log_prefix)
@@ -387,13 +412,17 @@ def process_many(inputs: Sequence[str], outdir: Path | None, jobs: int) -> list[
         exts = by_stem.setdefault(stem, set())
         exts.add(p.suffix.lower())
     for stem, exts in by_stem.items():
-        if any(e in exts for e in [".html", ".htm"]) and any(e in exts for e in [".mhtml", ".mht"]):
+        if any(e in exts for e in [".html", ".htm"]) and any(
+            e in exts for e in [".mhtml", ".mht"]
+        ):
             LOGGER.warning(
                 "Both HTML and MHTML present for '%s'. "
                 "The tool will compare them; prefer the richer result.",
                 stem,
             )
-        if ".pdf" in exts and (any(e in exts for e in [".html", ".htm", ".mhtml", ".mht"])):
+        if ".pdf" in exts and (
+            any(e in exts for e in [".html", ".htm", ".mhtml", ".mht"])
+        ):
             LOGGER.warning(
                 "PDF provided alongside HTML/MHTML for '%s'; "
                 "prefer HTML/MHTML over PDF when possible.",
