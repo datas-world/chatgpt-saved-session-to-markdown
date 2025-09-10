@@ -222,7 +222,9 @@ def try_extract_messages_with_roles(html: str) -> list[tuple[str, str]] | None:
     for el in candidates:
         if not hasattr(el, "get"):
             continue
-        el_tag = cast("Tag", el)  # find_all() with element names returns Tag objects
+        el_tag = cast(
+            "Tag", el
+        )  # find_all() with element names returns Tag objects
         class_raw = el_tag.get("class", None)
         if class_raw is None:
             continue
@@ -237,7 +239,10 @@ def try_extract_messages_with_roles(html: str) -> list[tuple[str, str]] | None:
         )
         if role != "unknown":
             content = (
-                el_tag.select_one(".markdown, .prose, .message-content, [data-message-content]") or el_tag
+                el_tag.select_one(
+                    ".markdown, .prose, .message-content, [data-message-content]"
+                )
+                or el_tag
             )
             if hasattr(content, "decode_contents"):
                 out.append((role, content.decode_contents()))
