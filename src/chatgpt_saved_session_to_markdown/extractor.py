@@ -15,7 +15,6 @@ import re
 from collections.abc import Sequence
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 from email import policy
-from email.message import Message
 from email.parser import BytesParser
 from pathlib import Path
 
@@ -89,14 +88,14 @@ def _build_resource_map_from_mhtml(path: Path) -> tuple[list[str], dict[str, tup
     if msg.is_multipart():
         for sub in msg.walk():
             # Only process Message objects
-            if not hasattr(sub, 'get_content_type'):
+            if not hasattr(sub, "get_content_type"):
                 continue
             ctype = (sub.get_content_type() or "").lower()
             payload = sub.get_payload(decode=True)
             if payload is None:
                 payload = b""
             elif isinstance(payload, str):
-                payload = payload.encode('utf-8')
+                payload = payload.encode("utf-8")
             elif not isinstance(payload, bytes):
                 continue
             if ctype.startswith("text/html"):
@@ -118,7 +117,7 @@ def _build_resource_map_from_mhtml(path: Path) -> tuple[list[str], dict[str, tup
             if payload is None:
                 payload = b""
             elif isinstance(payload, str):
-                payload = payload.encode('utf-8')
+                payload = payload.encode("utf-8")
             if isinstance(payload, bytes):
                 html_parts.append(
                     payload.decode(msg.get_content_charset() or "utf-8", errors="replace")
@@ -139,7 +138,7 @@ def _resolve_embeds(
         return html
     soup = BeautifulSoup(html, "lxml")
     for tag in soup.find_all(["img", "a", "source"]):
-        if not hasattr(tag, 'name') or not hasattr(tag, 'get'):
+        if not hasattr(tag, "name") or not hasattr(tag, "get"):
             continue
         attr = "src" if tag.name != "a" else "href"
         val_raw = tag.get(attr)
@@ -194,7 +193,7 @@ def try_extract_messages_with_roles(html: str) -> list[tuple[str, str]] | None:
 
     # Structured exports (preferred)
     for el in soup.select("[data-message-author-role]"):
-        if not hasattr(el, 'get'):
+        if not hasattr(el, "get"):
             continue
         role_raw = el.get("data-message-author-role")
         if role_raw is None:
@@ -208,7 +207,7 @@ def try_extract_messages_with_roles(html: str) -> list[tuple[str, str]] | None:
             content = (
                 el.select_one(".markdown, .prose, .message-content, [data-message-content]") or el
             )
-            if hasattr(content, 'decode_contents'):
+            if hasattr(content, "decode_contents"):
                 body_html = content.decode_contents()
                 out.append((role, body_html))
     if out:
@@ -217,7 +216,7 @@ def try_extract_messages_with_roles(html: str) -> list[tuple[str, str]] | None:
     # Heuristic class-based
     candidates = soup.find_all(["div", "section", "article"], class_=True)
     for el in candidates:
-        if not hasattr(el, 'get'):
+        if not hasattr(el, "get"):
             continue
         class_raw = el.get("class", [])
         if isinstance(class_raw, list):
@@ -233,35 +232,35 @@ def try_extract_messages_with_roles(html: str) -> list[tuple[str, str]] | None:
             content = (
                 el.select_one(".markdown, .prose, .message-content, [data-message-content]") or el
             )
-            if hasattr(content, 'decode_contents'):
+            if hasattr(content, "decode_contents"):
                 out.append((role, content.decode_contents()))
     if out:
         return out
 
     # ARIA/data-role hints
     for el in soup.select('[aria-label*="User" i], [aria-label*="Assistant" i], [data-role]'):
-        if not hasattr(el, 'get'):
+        if not hasattr(el, "get"):
             continue
         aria_raw = el.get("aria-label")
         drole_raw = el.get("data-role")
-        
+
         # Handle different types from BeautifulSoup get()
         if isinstance(aria_raw, list):
             aria = " ".join(str(a) for a in aria_raw).lower()
         else:
             aria = str(aria_raw or "").lower()
-            
+
         if isinstance(drole_raw, list):
             drole = " ".join(str(d) for d in drole_raw).lower()
         else:
             drole = str(drole_raw or "").lower()
-            
+
         role = (
             "assistant"
             if "assistant" in aria or "assistant" in drole
             else ("user" if "user" in aria or "user" in drole else "unknown")
         )
-        if role != "unknown" and hasattr(el, 'decode_contents'):
+        if role != "unknown" and hasattr(el, "decode_contents"):
             out.append((role, el.decode_contents()))
     return out or None
 
