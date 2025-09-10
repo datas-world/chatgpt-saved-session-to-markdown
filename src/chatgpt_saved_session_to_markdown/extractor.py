@@ -17,10 +17,14 @@ from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_compl
 from email import policy
 from email.parser import BytesParser
 from pathlib import Path
+from typing import TYPE_CHECKING, cast
 
 import pypdf
 from bs4 import BeautifulSoup  # type: ignore[import-untyped]
 from markdownify import markdownify as _md  # type: ignore[import-untyped]
+
+if TYPE_CHECKING:
+    from bs4 import Tag
 
 LOGGER = logging.getLogger(__name__)
 
@@ -218,9 +222,8 @@ def try_extract_messages_with_roles(html: str) -> list[tuple[str, str]] | None:
     for el in candidates:
         if not hasattr(el, "get"):
             continue
-        # Cast to Tag since find_all() with element names returns Tag objects
-        el = el  # type: ignore[assignment]
-        class_raw = el.get("class", None)
+        el_tag = cast("Tag", el)  # find_all() with element names returns Tag objects
+        class_raw = el_tag.get("class", None)
         if class_raw is None:
             continue
         if isinstance(class_raw, list):
@@ -234,7 +237,7 @@ def try_extract_messages_with_roles(html: str) -> list[tuple[str, str]] | None:
         )
         if role != "unknown":
             content = (
-                el.select_one(".markdown, .prose, .message-content, [data-message-content]") or el
+                el_tag.select_one(".markdown, .prose, .message-content, [data-message-content]") or el_tag
             )
             if hasattr(content, "decode_contents"):
                 out.append((role, content.decode_contents()))
