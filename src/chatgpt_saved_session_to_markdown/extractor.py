@@ -19,9 +19,9 @@ from email.message import Message
 from email.parser import BytesParser
 from pathlib import Path
 
-import pypdf
-from bs4 import BeautifulSoup
-from markdownify import markdownify as _md
+import pypdf  # type: ignore[import-not-found]
+from bs4 import BeautifulSoup  # type: ignore[import-untyped]
+from markdownify import markdownify as _md  # type: ignore[import-not-found]
 
 LOGGER = logging.getLogger(__name__)
 
@@ -88,10 +88,17 @@ def _build_resource_map_from_mhtml(path: Path) -> tuple[list[str], dict[str, tup
         msg = BytesParser(policy=policy.default).parse(f)
     if msg.is_multipart():
         for sub in msg.walk():
-            if not isinstance(sub, Message):
+            # Only process Message objects
+            if not hasattr(sub, 'get_content_type'):
                 continue
             ctype = (sub.get_content_type() or "").lower()
-            payload = sub.get_payload(decode=True) or b""
+            payload = sub.get_payload(decode=True)
+            if payload is None:
+                payload = b""
+            elif isinstance(payload, str):
+                payload = payload.encode('utf-8')
+            elif not isinstance(payload, bytes):
+                continue
             if ctype.startswith("text/html"):
                 try:
                     text = payload.decode(sub.get_content_charset() or "utf-8", errors="replace")
@@ -107,10 +114,15 @@ def _build_resource_map_from_mhtml(path: Path) -> tuple[list[str], dict[str, tup
                     resources[loc] = (ctype, payload)
     else:
         if (msg.get_content_type() or "").lower().startswith("text/html"):
-            payload = msg.get_payload(decode=True) or b""
-            html_parts.append(
-                payload.decode(msg.get_content_charset() or "utf-8", errors="replace")
-            )
+            payload = msg.get_payload(decode=True)
+            if payload is None:
+                payload = b""
+            elif isinstance(payload, str):
+                payload = payload.encode('utf-8')
+            if isinstance(payload, bytes):
+                html_parts.append(
+                    payload.decode(msg.get_content_charset() or "utf-8", errors="replace")
+                )
     return html_parts, resources
 
 
@@ -127,8 +139,17 @@ def _resolve_embeds(
         return html
     soup = BeautifulSoup(html, "lxml")
     for tag in soup.find_all(["img", "a", "source"]):
+        if not hasattr(tag, 'name') or not hasattr(tag, 'get'):
+            continue
         attr = "src" if tag.name != "a" else "href"
-        val = (tag.get(attr) or "").strip()
+        val_raw = tag.get(attr)
+        if val_raw is None:
+            continue
+        # Handle different types from BeautifulSoup get()
+        if isinstance(val_raw, list):
+            val = " ".join(str(v) for v in val_raw).strip()
+        else:
+            val = str(val_raw).strip()
         if not val:
             continue
         if val in resources or (val.startswith("cid:") and val in resources):
@@ -173,20 +194,36 @@ def try_extract_messages_with_roles(html: str) -> list[tuple[str, str]] | None:
 
     # Structured exports (preferred)
     for el in soup.select("[data-message-author-role]"):
-        role = (el.get("data-message-author-role") or "").strip().lower()
+        if not hasattr(el, 'get'):
+            continue
+        role_raw = el.get("data-message-author-role")
+        if role_raw is None:
+            continue
+        # Handle different types from BeautifulSoup get()
+        if isinstance(role_raw, list):
+            role = " ".join(str(r) for r in role_raw).strip().lower()
+        else:
+            role = str(role_raw).strip().lower()
         if role in {"user", "assistant", "system", "gpt"}:
             content = (
                 el.select_one(".markdown, .prose, .message-content, [data-message-content]") or el
             )
-            body_html = content.decode_contents()
-            out.append((role, body_html))
+            if hasattr(content, 'decode_contents'):
+                body_html = content.decode_contents()
+                out.append((role, body_html))
     if out:
         return out
 
     # Heuristic class-based
     candidates = soup.find_all(["div", "section", "article"], class_=True)
     for el in candidates:
-        classes = " ".join(el.get("class", [])).lower()
+        if not hasattr(el, 'get'):
+            continue
+        class_raw = el.get("class", [])
+        if isinstance(class_raw, list):
+            classes = " ".join(str(c) for c in class_raw).lower()
+        else:
+            classes = str(class_raw).lower()
         role = (
             "assistant"
             if any(k in classes for k in ("assistant", "gpt", "bot"))
@@ -196,20 +233,35 @@ def try_extract_messages_with_roles(html: str) -> list[tuple[str, str]] | None:
             content = (
                 el.select_one(".markdown, .prose, .message-content, [data-message-content]") or el
             )
-            out.append((role, content.decode_contents()))
+            if hasattr(content, 'decode_contents'):
+                out.append((role, content.decode_contents()))
     if out:
         return out
 
     # ARIA/data-role hints
     for el in soup.select('[aria-label*="User" i], [aria-label*="Assistant" i], [data-role]'):
-        aria = (el.get("aria-label") or "").lower()
-        drole = (el.get("data-role") or "").lower()
+        if not hasattr(el, 'get'):
+            continue
+        aria_raw = el.get("aria-label")
+        drole_raw = el.get("data-role")
+        
+        # Handle different types from BeautifulSoup get()
+        if isinstance(aria_raw, list):
+            aria = " ".join(str(a) for a in aria_raw).lower()
+        else:
+            aria = str(aria_raw or "").lower()
+            
+        if isinstance(drole_raw, list):
+            drole = " ".join(str(d) for d in drole_raw).lower()
+        else:
+            drole = str(drole_raw or "").lower()
+            
         role = (
             "assistant"
             if "assistant" in aria or "assistant" in drole
             else ("user" if "user" in aria or "user" in drole else "unknown")
         )
-        if role != "unknown":
+        if role != "unknown" and hasattr(el, 'decode_contents'):
             out.append((role, el.decode_contents()))
     return out or None
 
@@ -318,14 +370,15 @@ def expand_paths(inputs: Sequence[str]) -> list[Path]:
     for p in inputs:
         matches = glob.glob(p)
         for m in matches:
-            expanded.append(Path(m).resolve())
+            path_obj = Path(m).resolve()
+            expanded.append(path_obj)
     # de-dup while preserving order
     seen: set[Path] = set()
     uniq: list[Path] = []
-    for p in expanded:
-        if p not in seen:
-            uniq.append(p)
-            seen.add(p)
+    for path_item in expanded:
+        if path_item not in seen:
+            uniq.append(path_item)
+            seen.add(path_item)
     return uniq
 
 

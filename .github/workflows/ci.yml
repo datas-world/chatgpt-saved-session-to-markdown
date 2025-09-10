@@ -43,7 +43,7 @@ jobs:
         run: pre-commit run --all-files
 
       - name: pip-audit (vulnerabilities)
-        run: pip-audit -r pyproject.toml || true  # non-blocking by default; set to fail if you prefer
+        run: pip-audit . || true  # non-blocking by default; set to fail if you prefer
 
       - name: Type-check (mypy)
         run: |
