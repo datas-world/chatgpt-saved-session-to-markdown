@@ -17,11 +17,13 @@ from .extractor import process_many
 
 app = typer.Typer(
     add_completion=False,
-    help="Convert ChatGPT HTML/MHTML/PDF exports to Markdown (embeds inline resources, warns on better formats).",
+    help="Convert ChatGPT HTML/MHTML/PDF exports to Markdown "
+    "(embeds inline resources, warns on better formats).",
 )
 
 
 def _setup_logging(verbose: int) -> None:
+    """Configure logging level based on verbosity count."""
     level = logging.WARNING
     if verbose == 1:
         level = logging.INFO

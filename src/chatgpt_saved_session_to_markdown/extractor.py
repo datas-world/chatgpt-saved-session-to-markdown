@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import base64
 import contextlib
+import glob
 import logging
 import os
 import re
@@ -18,6 +19,7 @@ from email.message import Message
 from email.parser import BytesParser
 from pathlib import Path
 
+import pypdf
 from bs4 import BeautifulSoup
 from markdownify import markdownify as _md
 
@@ -35,7 +37,8 @@ def _warn_better_format_guess_for_html(html: str) -> None:
     cid_refs = len(re.findall(r'src=["\']cid:', html, flags=re.I))
     if cid_refs > 0:
         LOGGER.warning(
-            "HTML references cid: resources; an MHTML export typically embeds those. Prefer MHTML if available."
+            "HTML references cid: resources; an MHTML export typically embeds those. "
+            "Prefer MHTML if available."
         )
     elif role_markers == 0 and img_http >= 5:
         LOGGER.warning(
@@ -67,7 +70,8 @@ def _warn_better_format_guess_for_mhtml(
 def _warn_better_format_guess_for_pdf(pages_extracted: int, text_len: int) -> None:
     """Warn that PDF is less preferred than HTML/MHTML."""
     LOGGER.warning(
-        "PDF text extraction is best-effort and loses structure. Prefer HTML or MHTML exports whenever available."
+        "PDF text extraction is best-effort and loses structure. "
+        "Prefer HTML or MHTML exports whenever available."
     )
 
 
@@ -111,6 +115,7 @@ def _build_resource_map_from_mhtml(path: Path) -> tuple[list[str], dict[str, tup
 
 
 def _to_data_uri(mime: str, data: bytes) -> str:
+    """Convert binary data to data URI format."""
     return "data:" + mime + ";base64," + base64.b64encode(data).decode("ascii")
 
 
@@ -236,8 +241,6 @@ def dialogue_html_to_md(
 
 def _pdf_to_text(path: Path) -> tuple[str, int]:
     """Extract text from PDF using pypdf (best-effort, structure lost)."""
-    import pypdf  # runtime import to keep import cost low
-
     reader = pypdf.PdfReader(str(path))
     pages: list[str] = []
     for page in reader.pages:
@@ -256,6 +259,7 @@ def _pdf_to_text(path: Path) -> tuple[str, int]:
 
 
 def _process_single(path: Path, outdir: Path | None) -> list[Path]:
+    """Process a single input file and convert it to Markdown."""
     produced: list[Path] = []
     suffix = path.suffix.lower()
 
@@ -310,8 +314,6 @@ def _process_single(path: Path, outdir: Path | None) -> list[Path]:
 
 def expand_paths(inputs: Sequence[str]) -> list[Path]:
     """Expand glob patterns in input paths and return deduplicated resolved paths."""
-    import glob
-
     expanded: list[Path] = []
     for p in inputs:
         matches = glob.glob(p)

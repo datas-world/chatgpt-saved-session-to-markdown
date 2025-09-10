@@ -93,5 +93,4 @@ repos:
     rev: v2.9.0
     hooks:
       - id: pip-audit
-        args: ["-r", "pyproject.toml"]
-        additional_dependencies: []
+        args: ["."]
