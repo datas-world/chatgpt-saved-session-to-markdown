@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import base64
+import contextlib
 import logging
 import os
 import re
@@ -64,7 +65,7 @@ def _warn_better_format_guess_for_mhtml(
 
 
 def _warn_better_format_guess_for_pdf(pages_extracted: int, text_len: int) -> None:
-    """Always warn that PDF is less preferred than HTML/MHTML."""
+    """Warn that PDF is less preferred than HTML/MHTML."""
     LOGGER.warning(
         "PDF text extraction is best-effort and loses structure. Prefer HTML or MHTML exports whenever available."
     )
@@ -308,6 +309,7 @@ def _process_single(path: Path, outdir: Path | None) -> list[Path]:
 
 
 def expand_paths(inputs: Sequence[str]) -> list[Path]:
+    """Expand glob patterns in input paths and return deduplicated resolved paths."""
     import glob
 
     expanded: list[Path] = []
@@ -326,6 +328,7 @@ def expand_paths(inputs: Sequence[str]) -> list[Path]:
 
 
 def process_many(inputs: Sequence[str], outdir: Path | None, jobs: int) -> list[Path]:
+    """Process multiple input files concurrently and return list of output paths."""
     files = expand_paths(inputs)
     if not files:
         return []
@@ -339,12 +342,14 @@ def process_many(inputs: Sequence[str], outdir: Path | None, jobs: int) -> list[
     for stem, exts in by_stem.items():
         if any(e in exts for e in [".html", ".htm"]) and any(e in exts for e in [".mhtml", ".mht"]):
             LOGGER.warning(
-                "Both HTML and MHTML present for '%s'. The tool will compare them; prefer the richer result.",
+                "Both HTML and MHTML present for '%s'. "
+                "The tool will compare them; prefer the richer result.",
                 stem,
             )
         if ".pdf" in exts and (any(e in exts for e in [".html", ".htm", ".mhtml", ".mht"])):
             LOGGER.warning(
-                "PDF provided alongside HTML/MHTML for '%s'; prefer HTML/MHTML over PDF when possible.",
+                "PDF provided alongside HTML/MHTML for '%s'; "
+                "prefer HTML/MHTML over PDF when possible.",
                 stem,
             )
 
@@ -353,17 +358,15 @@ def process_many(inputs: Sequence[str], outdir: Path | None, jobs: int) -> list[
 
     total_size = 0
     for p in files:
-        try:
+        with contextlib.suppress(OSError):
             total_size += p.stat().st_size
-        except OSError:
-            pass
     small_batch = (len(files) < 8) or (total_size < 8 * 1024 * 1024)
     max_workers = max(1, jobs or os.cpu_count() or 4)
-    Executor = ThreadPoolExecutor if small_batch else ProcessPoolExecutor
+    executor = ThreadPoolExecutor if small_batch else ProcessPoolExecutor
 
     produced_total: list[Path] = []
     failures: list[str] = []
-    with Executor(max_workers=max_workers) as ex:
+    with executor(max_workers=max_workers) as ex:
         futs = {ex.submit(_process_single, p, outdir): p for p in files}
         for fut in as_completed(futs):
             src = futs[fut]
