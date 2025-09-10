@@ -32,7 +32,6 @@ LOGGER = logging.getLogger(__name__)
 # Heuristic quality signals & warnings                                        #
 # --------------------------------------------------------------------------- #
 
-
 def _warn_better_format_guess_for_html(html: str) -> None:
     """Warn if HTML likely loses embeds vs. MHTML."""
     role_markers = len(re.findall(r'data-message-author-role=(["\'])', html))
@@ -48,7 +47,6 @@ def _warn_better_format_guess_for_html(html: str) -> None:
             "HTML has many external images but no clear chat role markers. "
             "An MHTML export often preserves inline assets better. Consider MHTML if available."
         )
-
 
 def _warn_better_format_guess_for_mhtml(
     html_parts: list[str], resources: dict[str, tuple[str, bytes]]
@@ -69,7 +67,6 @@ def _warn_better_format_guess_for_mhtml(
             "If possible, try the HTML export as well."
         )
 
-
 def _warn_better_format_guess_for_pdf(pages_extracted: int, text_len: int) -> None:
     """Warn that PDF is less preferred than HTML/MHTML."""
     LOGGER.warning(
@@ -77,11 +74,9 @@ def _warn_better_format_guess_for_pdf(pages_extracted: int, text_len: int) -> No
         "Prefer HTML or MHTML exports whenever available."
     )
 
-
 # --------------------------------------------------------------------------- #
 # MHTML parsing & in-memory resource embedding                                 #
 # --------------------------------------------------------------------------- #
-
 
 def _build_resource_map_from_mhtml(path: Path) -> tuple[list[str], dict[str, tuple[str, bytes]]]:
     """Return (html_parts, resources) from an MHTML file; no temp files."""
@@ -128,11 +123,9 @@ def _build_resource_map_from_mhtml(path: Path) -> tuple[list[str], dict[str, tup
                 )
     return html_parts, resources
 
-
 def _to_data_uri(mime: str, data: bytes) -> str:
     """Convert binary data to data URI format."""
     return "data:" + mime + ";base64," + base64.b64encode(data).decode("ascii")
-
 
 def _resolve_embeds(
     html: str, resources: dict[str, tuple[str, bytes]] | None, log_prefix: str = ""
@@ -162,11 +155,9 @@ def _resolve_embeds(
             LOGGER.warning("%sUnresolved CID resource: %s", log_prefix, val)
     return str(soup)
 
-
 # --------------------------------------------------------------------------- #
 # HTML -> Markdown conversion (markdownify)                                    #
 # --------------------------------------------------------------------------- #
-
 
 def _html_to_markdown(html: str) -> str:
     """Convert HTML to Markdown using markdownify (no temp files)."""
@@ -184,11 +175,9 @@ def _html_to_markdown(html: str) -> str:
     md = re.sub(r"\n{3,}", "\n\n", md).strip() + "\n"
     return md
 
-
 # --------------------------------------------------------------------------- #
 # Role extraction with BeautifulSoup                                           #
 # --------------------------------------------------------------------------- #
-
 
 def try_extract_messages_with_roles(html: str) -> list[tuple[str, str]] | None:
     """Use BeautifulSoup selectors to extract (role, inner_html) messages."""
@@ -276,7 +265,6 @@ def try_extract_messages_with_roles(html: str) -> list[tuple[str, str]] | None:
             out.append((role, el.decode_contents()))
     return out or None
 
-
 def dialogue_html_to_md(
     html: str, resources: dict[str, tuple[str, bytes]] | None = None, log_prefix: str = ""
 ) -> str:
@@ -296,11 +284,9 @@ def dialogue_html_to_md(
 
     return _html_to_markdown(html_inlined)
 
-
 # --------------------------------------------------------------------------- #
 # PDF extraction (pypdf)                                                       #
 # --------------------------------------------------------------------------- #
-
 
 def _pdf_to_text(path: Path) -> tuple[str, int]:
     """Extract text from PDF using pypdf (best-effort, structure lost)."""
@@ -315,11 +301,9 @@ def _pdf_to_text(path: Path) -> tuple[str, int]:
             pages.append(txt.strip())
     return ("\n\n---\n\n".join(pages).strip(), len(pages))
 
-
 # --------------------------------------------------------------------------- #
 # Per-file worker                                                              #
 # --------------------------------------------------------------------------- #
-
 
 def _process_single(path: Path, outdir: Path | None) -> list[Path]:
     """Process a single input file and convert it to Markdown."""
@@ -369,11 +353,9 @@ def _process_single(path: Path, outdir: Path | None) -> list[Path]:
 
     return produced
 
-
 # --------------------------------------------------------------------------- #
 # Path expansion & batch processing                                            #
 # --------------------------------------------------------------------------- #
-
 
 def expand_paths(inputs: Sequence[str]) -> list[Path]:
     """Expand glob patterns in input paths and return deduplicated resolved paths."""
@@ -391,7 +373,6 @@ def expand_paths(inputs: Sequence[str]) -> list[Path]:
             uniq.append(path_item)
             seen.add(path_item)
     return uniq
-
 
 def process_many(inputs: Sequence[str], outdir: Path | None, jobs: int) -> list[Path]:
     """Process multiple input files concurrently and return list of output paths."""

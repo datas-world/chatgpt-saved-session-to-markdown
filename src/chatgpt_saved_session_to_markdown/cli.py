@@ -21,7 +21,6 @@ app = typer.Typer(
     "(embeds inline resources, warns on better formats).",
 )
 
-
 def _setup_logging(verbose: int) -> None:
     """Configure logging level based on verbosity count."""
     level = logging.WARNING
@@ -30,7 +29,6 @@ def _setup_logging(verbose: int) -> None:
     elif verbose >= 2:
         level = logging.DEBUG
     logging.basicConfig(level=level, format="%(levelname)s: %(message)s")
-
 
 @app.callback()
 def _main(
@@ -55,7 +53,6 @@ def _main(
     if not ctx.invoked_subcommand:
         typer.echo(ctx.get_help())
         raise typer.Exit(code=0)
-
 
 @app.command("run")
 def run(
@@ -84,7 +81,6 @@ def run(
         raise typer.Exit(code=1)
     for p in produced:
         print(str(p))
-
 
 if __name__ == "__main__":
     app()
