@@ -17,14 +17,10 @@ from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_compl
 from email import policy
 from email.parser import BytesParser
 from pathlib import Path
-from typing import TYPE_CHECKING, cast
 
 import pypdf
-from bs4 import BeautifulSoup  # type: ignore[import-untyped]
-from markdownify import markdownify as _md  # type: ignore[import-untyped]
-
-if TYPE_CHECKING:
-    from bs4 import Tag
+from bs4 import BeautifulSoup, Tag
+from markdownify import markdownify as _md  # type: ignore[import-not-found]
 
 LOGGER = logging.getLogger(__name__)
 
@@ -160,7 +156,7 @@ def _resolve_embeds(
             continue
         if val in resources or (val.startswith("cid:") and val in resources):
             mime, data = resources[val]
-            tag[attr] = _to_data_uri(mime, data)  # type: ignore[index]
+            tag[attr] = _to_data_uri(mime, data)
         elif val.startswith("cid:"):
             LOGGER.warning("%sUnresolved CID resource: %s", log_prefix, val)
     return str(soup)
@@ -236,8 +232,10 @@ def try_extract_messages_with_roles(html: str) -> list[tuple[str, str]] | None:
     for el in candidates:
         if not hasattr(el, "get"):
             continue
-        el_tag = cast("Tag", el)  # find_all() with element names returns Tag objects
-        class_raw = el_tag.get("class", None)
+        # Type narrowing: elements from find_all with specific tag names are Tag objects
+        if not isinstance(el, Tag):
+            continue
+        class_raw = el.get("class", None)
         if class_raw is None:
             continue
         if isinstance(class_raw, list):
@@ -251,8 +249,7 @@ def try_extract_messages_with_roles(html: str) -> list[tuple[str, str]] | None:
         )
         if role != "unknown":
             content = (
-                el_tag.select_one(".markdown, .prose, .message-content, [data-message-content]")
-                or el_tag
+                el.select_one(".markdown, .prose, .message-content, [data-message-content]") or el
             )
             if hasattr(content, "decode_contents"):
                 out.append((role, content.decode_contents()))
