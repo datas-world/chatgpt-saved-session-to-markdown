@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-import typer  # type: ignore[import-not-found]
+import typer
 from rich import print
 
 from . import __version__

@@ -18,9 +18,9 @@ from email import policy
 from email.parser import BytesParser
 from pathlib import Path
 
-import pypdf  # type: ignore[import-not-found]
+import pypdf
 from bs4 import BeautifulSoup  # type: ignore[import-untyped]
-from markdownify import markdownify as _md  # type: ignore[import-not-found]
+from markdownify import markdownify as _md  # type: ignore[import-untyped]
 
 LOGGER = logging.getLogger(__name__)
 
@@ -153,7 +153,7 @@ def _resolve_embeds(
             continue
         if val in resources or (val.startswith("cid:") and val in resources):
             mime, data = resources[val]
-            tag[attr] = _to_data_uri(mime, data)
+            tag[attr] = _to_data_uri(mime, data)  # type: ignore[index]
         elif val.startswith("cid:"):
             LOGGER.warning("%sUnresolved CID resource: %s", log_prefix, val)
     return str(soup)
@@ -218,7 +218,11 @@ def try_extract_messages_with_roles(html: str) -> list[tuple[str, str]] | None:
     for el in candidates:
         if not hasattr(el, "get"):
             continue
-        class_raw = el.get("class", [])
+        # Cast to Tag since find_all() with element names returns Tag objects
+        el = el  # type: ignore[assignment]
+        class_raw = el.get("class", None)
+        if class_raw is None:
+            continue
         if isinstance(class_raw, list):
             classes = " ".join(str(c) for c in class_raw).lower()
         else:
