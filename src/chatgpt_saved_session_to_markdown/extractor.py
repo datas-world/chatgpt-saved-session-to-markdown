@@ -470,8 +470,8 @@ def _process_single(path: Path, outdir: Path | None) -> list[Path]:
         # Use system encoding for output files
         try:
             out.write_text(md, encoding=system_encoding)
-        except UnicodeEncodeError:
-            raise RuntimeError(f"Cannot write output file {out} with system encoding {system_encoding}")
+        except UnicodeEncodeError as exc:
+            raise RuntimeError(f"Cannot write output file {out} with system encoding {system_encoding}") from exc
         produced.append(out)
 
     elif suffix == ".pdf":
