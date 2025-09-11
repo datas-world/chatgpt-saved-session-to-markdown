@@ -33,7 +33,6 @@ dependencies = [
   "markdownify>=0.13",
   "pypdf>=5",
   "rich>=13",
-  "typer>=0.12.3",
 ]
 
 optional-dependencies.dev = [
@@ -55,7 +54,7 @@ optional-dependencies.dev = [
   "ruff>=0.5",
   "semver>=3",
 ]
-scripts.chatgpt-saved-session-to-markdown = "chatgpt_saved_session_to_markdown.cli:app"
+scripts.chatgpt-saved-session-to-markdown = "chatgpt_saved_session_to_markdown.cli:main"
 
 [tool.hatch.version]
 source = "vcs"                                                                                                                                                                                                               # <-- take version from git

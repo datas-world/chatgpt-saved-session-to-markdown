@@ -7,6 +7,7 @@
 
 import subprocess
 import tempfile
+import time
 import traceback
 from pathlib import Path
 
@@ -102,7 +103,7 @@ def test_microsoft_copilot_mhtml_e2e():
         print(f"Using temp directory: {temp_path}")
 
         # Run the CLI tool
-        cmd = ["chatgpt-saved-session-to-markdown", "run", "-o", str(temp_path), str(mhtml_file)]
+        cmd = ["chatgpt-saved-session-to-markdown", "-o", str(temp_path), str(mhtml_file)]
         print(f"Running command: {' '.join(cmd)}")
 
         result = subprocess.run(cmd, check=False, capture_output=True, text=True, shell=False)
@@ -141,7 +142,7 @@ def test_microsoft_copilot_html_e2e():
 
         # Run the CLI tool
         result = subprocess.run(
-            ["chatgpt-saved-session-to-markdown", "run", "-o", str(temp_path), str(html_file)],
+            ["chatgpt-saved-session-to-markdown", "-o", str(temp_path), str(html_file)],
             check=False,
             capture_output=True,
             text=True,
@@ -185,7 +186,7 @@ def test_microsoft_copilot_pdf_e2e():
 
         # Run the CLI tool
         result = subprocess.run(
-            ["chatgpt-saved-session-to-markdown", "run", "-o", str(temp_path), str(pdf_file)],
+            ["chatgpt-saved-session-to-markdown", "-o", str(temp_path), str(pdf_file)],
             check=False,
             capture_output=True,
             text=True,
@@ -224,7 +225,6 @@ def test_no_warnings_or_errors():
         result = subprocess.run(
             [
                 "chatgpt-saved-session-to-markdown",
-                "run",
                 "-vv",
                 "-o",
                 str(temp_path),
@@ -290,7 +290,7 @@ def test_chatgpt_compatibility():
 
         # Run the CLI tool
         result = subprocess.run(
-            ["chatgpt-saved-session-to-markdown", "run", "-o", str(temp_path), str(test_file)],
+            ["chatgpt-saved-session-to-markdown", "-o", str(temp_path), str(test_file)],
             check=False,
             capture_output=True,
             text=True,
