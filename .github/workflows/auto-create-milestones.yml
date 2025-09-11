@@ -38,7 +38,7 @@ jobs:
           script: |
             if (context.eventName === 'workflow_dispatch') {
               // For manual trigger, merge versions from both tags and releases
-              console.log('Manual trigger: discovering all versions from tags and releases');
+              console.log('Manual trigger: discovering all versions from tags and releases.');
               
               // Get all tags that match major.minor.patch format
               const { execSync } = require('child_process');
