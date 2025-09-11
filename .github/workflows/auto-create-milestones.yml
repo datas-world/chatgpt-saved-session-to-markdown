@@ -15,8 +15,8 @@ on:
   # Tag creation
   push:
     tags:
-      # Exact semver regex from semver.org (no leading v allowed)
-      - '^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$'
+      # Major.minor.patch semver only (no pre-release or build metadata)
+      - '^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)$'
   # Release/package upload
   release:
     types: [published]
@@ -45,9 +45,9 @@ jobs:
             exit 1
           fi
           
-          # Validate semver format
-          if [[ ! "$VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-.*)?(\+.*)?$ ]]; then
-            echo "::error::Invalid semantic version format: $VERSION"
+          # Validate major.minor.patch format only
+          if [[ ! "$VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            echo "::error::Invalid major.minor.patch version format: $VERSION"
             exit 1
           fi
           
@@ -61,10 +61,10 @@ jobs:
             const version = '${{ steps.version.outputs.version }}';
             console.log(`Processing version: ${version}`);
             
-            // Parse semantic version
-            const match = version.match(/^(\d+)\.(\d+)\.(\d+)(?:-.*)?(?:\+.*)?$/);
+            // Parse major.minor.patch version
+            const match = version.match(/^(\d+)\.(\d+)\.(\d+)$/);
             if (!match) {
-              core.setFailed(`Failed to parse semantic version: ${version}`);
+              core.setFailed(`Failed to parse major.minor.patch version: ${version}`);
               return;
             }
             
