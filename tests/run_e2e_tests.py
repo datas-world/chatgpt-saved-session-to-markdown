@@ -33,8 +33,14 @@ def validate_microsoft_copilot_content(content, strict=True):
     """Shared content validation for Microsoft Copilot files (MHTML, HTML, PDF).
     
     Args:
-        content: The generated markdown content
+        content: The generated markdown content.
         strict: If True, requires specific German content. If False, allows more flexible validation.
+    
+    Returns:
+        None
+    
+    Raises:
+        AssertionError: If validation fails (in strict mode or if assertions are triggered).
     """
     # Basic conversation structure should be present
     has_user = "### User" in content
