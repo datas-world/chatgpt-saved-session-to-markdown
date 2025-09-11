@@ -30,24 +30,26 @@ LOGGER = logging.getLogger(__name__)
 # --------------------------------------------------------------------------- #
 
 
-def _warn_better_format_guess_for_html(html: str) -> None:
+def _warn_better_format_guess_for_html(html: str, path: Path) -> None:
     """Warn if HTML likely loses embeds vs. MHTML."""
     role_markers = len(re.findall(r'data-message-author-role=(["\'])', html))
     img_http = len(re.findall(r'<img[^>]+src=["\']https?://', html, flags=re.I))
     cid_refs = len(re.findall(r'src=["\']cid:', html, flags=re.I))
     if cid_refs > 0:
         LOGGER.warning(
-            "HTML references cid: resources; an MHTML export typically embeds those. Prefer MHTML if available."
+            "%s: HTML references cid: resources; an MHTML export typically embeds those. Prefer MHTML if available.",
+            path,
         )
     elif role_markers == 0 and img_http >= 5:
         LOGGER.warning(
-            "HTML has many external images but no clear chat role markers. "
-            "An MHTML export often preserves inline assets better. Consider MHTML if available."
+            "%s: HTML has many external images but no clear chat role markers. "
+            "An MHTML export often preserves inline assets better. Consider MHTML if available.",
+            path,
         )
 
 
 def _warn_better_format_guess_for_mhtml(
-    html_parts: list[str], resources: dict[str, tuple[str, bytes]]
+    html_parts: list[str], resources: dict[str, tuple[str, bytes]], path: Path
 ) -> None:
     """Warn if MHTML looks incomplete vs. HTML."""
     combined = "\n".join(html_parts)
@@ -56,20 +58,23 @@ def _warn_better_format_guess_for_mhtml(
     missing = len(cid_refs) - resolved
     if len(html_parts) == 1 and resolved == 0 and len(combined) < 20_000:
         LOGGER.warning(
-            "MHTML contains no resolved inline resources and limited text. "
-            "An HTML export may yield richer content. Prefer HTML if available."
+            "%s: MHTML contains no resolved inline resources and limited text. "
+            "An HTML export may yield richer content. Prefer HTML if available.",
+            path,
         )
     elif missing > 0:
         LOGGER.warning(
-            "Some MHTML inline resources referenced by cid: were not found. "
-            "If possible, try the HTML export as well."
+            "%s: Some MHTML inline resources referenced by cid: were not found. "
+            "If possible, try the HTML export as well.",
+            path,
         )
 
 
-def _warn_better_format_guess_for_pdf(pages_extracted: int, text_len: int) -> None:
+def _warn_better_format_guess_for_pdf(pages_extracted: int, text_len: int, path: Path) -> None:
     """Always warn that PDF is less preferred than HTML/MHTML."""
     LOGGER.warning(
-        "PDF text extraction is best-effort and loses structure. Prefer HTML or MHTML exports whenever available."
+        "%s: PDF text extraction is best-effort and loses structure. Prefer HTML or MHTML exports whenever available.",
+        path,
     )
 
 
@@ -422,7 +427,7 @@ def _process_single(path: Path, outdir: Path | None) -> list[Path]:
         html_parts, resources = _build_resource_map_from_mhtml(path)
         if not html_parts:
             raise RuntimeError(f"No text/html parts found in {path}")
-        _warn_better_format_guess_for_mhtml(html_parts, resources)
+        _warn_better_format_guess_for_mhtml(html_parts, resources, path)
         for i, html in enumerate(html_parts):
             md = dialogue_html_to_md(
                 html, resources=resources, log_prefix=f"[{path.name} part {i}] "
@@ -447,7 +452,7 @@ def _process_single(path: Path, outdir: Path | None) -> list[Path]:
             html = path.read_text(encoding=system_encoding, errors="replace")
         except UnicodeDecodeError:
             raise RuntimeError(f"Cannot read HTML file {path} with system encoding {system_encoding}")
-        _warn_better_format_guess_for_html(html)
+        _warn_better_format_guess_for_html(html, path)
         md = dialogue_html_to_md(html, resources=None, log_prefix=f"[{path.name}] ")
         if not md.strip():
             raise RuntimeError(f"No extractable content in {path}")
@@ -462,7 +467,7 @@ def _process_single(path: Path, outdir: Path | None) -> list[Path]:
     elif suffix == ".pdf":
         LOGGER.info("Processing PDF: %s", path)
         text, pages = _pdf_to_text(path)
-        _warn_better_format_guess_for_pdf(pages_extracted=pages, text_len=len(text))
+        _warn_better_format_guess_for_pdf(pages_extracted=pages, text_len=len(text), path=path)
         if not text.strip():
             raise RuntimeError(f"No extractable content in {path}")
         out = (outdir or path.parent) / f"{path.stem}.md"
@@ -510,21 +515,23 @@ def process_many(inputs: Sequence[str], outdir: Path | None, jobs: int) -> list[
         return []
 
     # group-level format advice
-    by_stem: dict[str, set[str]] = {}
+    by_stem: dict[str, list[Path]] = {}
     for p in files:
         stem = p.stem.lower()
-        exts = by_stem.setdefault(stem, set())
-        exts.add(p.suffix.lower())
-    for stem, exts in by_stem.items():
+        by_stem.setdefault(stem, []).append(p)
+    for stem, file_list in by_stem.items():
+        exts = {f.suffix.lower() for f in file_list}
         if any(e in exts for e in [".html", ".htm"]) and any(e in exts for e in [".mhtml", ".mht"]):
+            paths_str = ", ".join(str(f) for f in file_list)
             LOGGER.warning(
-                "Both HTML and MHTML present for '%s'. The tool will compare them; prefer the richer result.",
-                stem,
+                "Both HTML and MHTML present for files: %s. The tool will compare them; prefer the richer result.",
+                paths_str,
             )
         if ".pdf" in exts and (any(e in exts for e in [".html", ".htm", ".mhtml", ".mht"])):
+            paths_str = ", ".join(str(f) for f in file_list)
             LOGGER.warning(
-                "PDF provided alongside HTML/MHTML for '%s'; prefer HTML/MHTML over PDF when possible.",
-                stem,
+                "PDF provided alongside HTML/MHTML for files: %s; prefer HTML/MHTML over PDF when possible.",
+                paths_str,
             )
 
     if outdir:
