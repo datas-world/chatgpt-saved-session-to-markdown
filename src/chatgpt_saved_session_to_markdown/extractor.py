@@ -177,7 +177,12 @@ def try_extract_messages_with_roles(html: str) -> list[tuple[str, str]] | None:
     if out:
         return out
 
-    # Heuristic class-based
+    # Microsoft Copilot conversation detection
+    copilot_chat = soup.select_one('[data-testid="highlighted-chats"]')
+    if copilot_chat:
+        return _extract_copilot_messages(copilot_chat)
+
+    # Heuristic class-based (with filtering for actual conversation content)
     candidates = soup.find_all(["div", "section", "article"], class_=True)
     for el in candidates:
         classes = " ".join(el.get("class", [])).lower()
@@ -187,6 +192,18 @@ def try_extract_messages_with_roles(html: str) -> list[tuple[str, str]] | None:
             else ("user" if any(k in classes for k in ("user", "you")) else "unknown")
         )
         if role != "unknown":
+            # Filter out UI elements by checking for meaningful content
+            text_content = el.get_text().strip()
+            if len(text_content) < 20:  # Skip short UI elements
+                continue
+            
+            # Skip elements that are clearly UI components
+            if any(ui_term in classes for ui_term in (
+                "absolute", "relative", "fixed", "sticky", "hidden", "pointer-events-none",
+                "bottom-0", "top-0", "z-10", "z-20", "overlay", "backdrop"
+            )):
+                continue
+
             content = (
                 el.select_one(".markdown, .prose, .message-content, [data-message-content]") or el
             )
@@ -206,6 +223,40 @@ def try_extract_messages_with_roles(html: str) -> list[tuple[str, str]] | None:
         if role != "unknown":
             out.append((role, el.decode_contents()))
     return out or None
+
+
+def _extract_copilot_messages(chat_container) -> list[tuple[str, str]] | None:
+    """Extract conversation messages from Microsoft Copilot chat container."""
+    import re
+    
+    # Get the full text content and parse it for conversation patterns
+    full_text = chat_container.get_text()
+    
+    # Microsoft Copilot pattern: "Sie sagten" followed by content, then "Copilot sagt[e]" followed by content
+    messages = []
+    
+    # Split by "Sie sagten" to get conversation segments
+    segments = full_text.split('Sie sagten')[1:]  # Skip first split (before first "Sie sagten")
+    
+    for segment in segments:
+        # Look for Copilot responses (handling both "Copilot sagt" and "Copilot sagte")
+        copilot_match = re.search(r'Copilot sagt[e]?(.+?)(?=Sie sagten|Nachricht an Copilot|$)', segment, re.DOTALL)
+        if copilot_match:
+            # Extract user message (everything before "Copilot sagt[e]")
+            user_split = re.split(r'Copilot sagt[e]?', segment, 1)
+            if len(user_split) > 0:
+                user_content = user_split[0].strip()
+                if user_content and len(user_content) > 5:
+                    messages.append(("user", user_content))
+            
+            # Extract assistant message
+            assistant_content = copilot_match.group(1).strip()
+            # Remove trailing input prompts and UI text
+            assistant_content = re.sub(r'Nachricht an Copilot.*$', '', assistant_content, flags=re.DOTALL).strip()
+            if assistant_content and len(assistant_content) > 5:
+                messages.append(("assistant", assistant_content))
+    
+    return messages if messages else None
 
 
 def dialogue_html_to_md(
