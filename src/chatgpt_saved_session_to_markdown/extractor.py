@@ -224,8 +224,7 @@ def _extract_and_decode_payload(message: Message, log_context: str) -> bytes:
         return _decode_content_transfer_encoding(raw_payload, encoding)
     except RuntimeError as exc:
         LOGGER.error("Content-Transfer-Encoding decode error in %s: %s", log_context, exc)
-        # Fallback to raw payload on decode error
-        return raw_payload
+        raise
 
 
 # --------------------------------------------------------------------------- #
