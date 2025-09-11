@@ -86,9 +86,12 @@ def _warn_better_format_guess_for_pdf(pages_extracted: int, text_len: int, path:
 def _decode_content_transfer_encoding(payload: bytes, encoding: str | None) -> bytes:
     """Decode Content-Transfer-Encoding values as defined in RFC 1341.
     
+    See: https://tools.ietf.org/html/rfc1341#section-5
+    
     This implementation checks for encodings in the following order:
     quoted-printable > base64 > binary > 8bit > 7bit.
-    (Note: This priority order is an implementation choice, not specified by RFC 1341.)
+    (Note: This priority order is an implementation choice, not specified by RFC 1341.
+     See: https://tools.ietf.org/html/rfc1341#section-5.1)
     Uses COTS packages (standard library base64, quopri) with proper validation.
     
     Args:
@@ -103,6 +106,7 @@ def _decode_content_transfer_encoding(payload: bytes, encoding: str | None) -> b
     """
     if not encoding:
         # Default to 7bit if no encoding specified (RFC 1341 default)
+        # See: https://tools.ietf.org/html/rfc1341#section-5.1
         return payload
     
     encoding_lower = encoding.strip().lower()
@@ -137,8 +141,11 @@ def _decode_content_transfer_encoding(payload: bytes, encoding: str | None) -> b
 def _get_system_encoding() -> str:
     """Get the system's preferred encoding for text files.
     
-    Returns the locale encoding, falling back to US-ASCII per RFC standards
+    Returns the locale encoding, falling back to US-ASCII per RFC 2822/5322 standards
     if locale detection fails.
+    
+    See: https://tools.ietf.org/html/rfc2822#section-2.2
+         https://tools.ietf.org/html/rfc5322#section-2.2
     """
     try:
         encoding = locale.getpreferredencoding(False)
@@ -155,6 +162,9 @@ def _get_email_charset_or_error(message: Message, context: str) -> str:
     
     Per RFC 2822/5322, if no charset is specified for text/* content,
     US-ASCII should be assumed.
+    
+    See: https://tools.ietf.org/html/rfc2822#section-2.2
+         https://tools.ietf.org/html/rfc5322#section-2.2
     
     Args:
         message: Email message object
@@ -273,6 +283,7 @@ def _build_resource_map_from_mhtml(path: Path) -> tuple[list[str], dict[str, tup
 
 def _to_data_uri(mime: str, data: bytes) -> str:
     # base64 encoding always produces ASCII-safe output per RFC 4648
+    # See: https://tools.ietf.org/html/rfc4648#section-4
     return "data:" + mime + ";base64," + base64.b64encode(data).decode("ascii")
 
 
