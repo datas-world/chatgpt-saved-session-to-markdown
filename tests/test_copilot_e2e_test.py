@@ -24,7 +24,7 @@ def test_microsoft_copilot_mhtml_e2e():
 
         # Run the CLI tool
         result = subprocess.run(
-            ["chatgpt-saved-session-to-markdown", "run", "-o", str(temp_path), str(mhtml_file)],
+            ["chatgpt-saved-session-to-markdown", "-o", str(temp_path), str(mhtml_file)],
             check=False,
             capture_output=True,
             text=True,
@@ -43,7 +43,7 @@ def test_microsoft_copilot_mhtml_e2e():
 
         # Read the output
         output_file = output_files[0]
-        content = output_file.read_text(encoding="utf-8")
+        content = output_file.read_text()
 
         # Verify conversation structure
         assert "## User" in content, "User messages not found in output"  # nosec
@@ -81,7 +81,7 @@ def test_microsoft_copilot_html_e2e():
 
         # Run the CLI tool
         result = subprocess.run(
-            ["chatgpt-saved-session-to-markdown", "run", "-o", str(temp_path), str(html_file)],
+            ["chatgpt-saved-session-to-markdown", "-o", str(temp_path), str(html_file)],
             check=False,
             capture_output=True,
             text=True,
@@ -112,7 +112,7 @@ def test_microsoft_copilot_pdf_e2e():
 
         # Run the CLI tool
         result = subprocess.run(
-            ["chatgpt-saved-session-to-markdown", "run", "-o", str(temp_path), str(pdf_file)],
+            ["chatgpt-saved-session-to-markdown", "-o", str(temp_path), str(pdf_file)],
             check=False,
             capture_output=True,
             text=True,
@@ -142,7 +142,6 @@ def test_no_warnings_or_errors():
         result = subprocess.run(
             [
                 "chatgpt-saved-session-to-markdown",
-                "run",
                 "-vv",
                 "-o",
                 str(temp_path),
@@ -181,33 +180,35 @@ def test_chatgpt_compatibility():
         temp_path = Path(temp_dir)
 
         # Create a simple ChatGPT-style HTML file
-        chatgpt_html = """<!DOCTYPE html>
-<html>
-<head><title>ChatGPT Conversation</title></head>
-<body>
-<div data-message-author-role="user">
-    <div class="message-content">Hello, can you help me with Python?</div>
-</div>
-<div data-message-author-role="assistant">
-    <div class="message-content">Of course! I'd be happy to help you with Python. """
-        """What do you need assistance with?</div>
-</div>
-<div data-message-author-role="user">
-    <div class="message-content">How do I create a list?</div>
-</div>
-<div data-message-author-role="assistant">
-    <div class="message-content">You can create a list in Python using square brackets: """
-        """<code>my_list = [1, 2, 3]</code></div>
-</div>
-</body>
-</html>"""
+        chatgpt_html = (
+            "<!DOCTYPE html>\n"
+            "<html>\n"
+            "<head><title>ChatGPT Conversation</title></head>\n"
+            "<body>\n"
+            '<div data-message-author-role="user">\n'
+            '    <div class="message-content">Hello, can you help me with Python?</div>\n'
+            "</div>\n"
+            '<div data-message-author-role="assistant">\n'
+            '    <div class="message-content">Of course! I\'d be happy to help you with Python. '
+            "What do you need assistance with?</div>\n"
+            "</div>\n"
+            '<div data-message-author-role="user">\n'
+            '    <div class="message-content">How do I create a list?</div>\n'
+            "</div>\n"
+            '<div data-message-author-role="assistant">\n'
+            '    <div class="message-content">You can create a list in Python using '
+            "square brackets: <code>my_list = [1, 2, 3]</code></div>\n"
+            "</div>\n"
+            "</body>\n"
+            "</html>"
+        )
 
         test_file = temp_path / "chatgpt_test.html"
-        test_file.write_text(chatgpt_html, encoding="utf-8")
+        test_file.write_text(chatgpt_html)
 
         # Run the CLI tool
         result = subprocess.run(
-            ["chatgpt-saved-session-to-markdown", "run", "-o", str(temp_path), str(test_file)],
+            ["chatgpt-saved-session-to-markdown", "-o", str(temp_path), str(test_file)],
             check=False,
             capture_output=True,
             text=True,
@@ -221,11 +222,11 @@ def test_chatgpt_compatibility():
         )
 
         # Check that output file was created
-        output_files = list(temp_path.glob("*_test.md"))
+        output_files = list(temp_path.glob("*.md"))
         assert len(output_files) > 0, "No markdown files were created"  # nosec
 
         # Read the output
-        content = output_files[0].read_text(encoding="utf-8")
+        content = output_files[0].read_text()
 
         # Verify conversation structure
         assert "## User" in content, "User messages not found in output"  # nosec
