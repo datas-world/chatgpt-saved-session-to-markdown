@@ -38,9 +38,6 @@ jobs:
       - name: Pre-commit (format, lint, security, type-check, REUSE)
         run: pre-commit run --all-files
 
-      - name: pip-audit (vulnerabilities)
-        run: pip-audit . || true  # non-blocking by default; set to fail if you prefer
-
   test:
     name: Test
     runs-on: ubuntu-latest
