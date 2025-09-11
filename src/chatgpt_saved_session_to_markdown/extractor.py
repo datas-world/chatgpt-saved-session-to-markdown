@@ -485,8 +485,8 @@ def _process_single(path: Path, outdir: Path | None) -> list[Path]:
         system_encoding = _get_system_encoding()
         try:
             out.write_text(text.strip() + "\n", encoding=system_encoding)
-        except UnicodeEncodeError:
-            raise RuntimeError(f"Cannot write output file {out} with system encoding {system_encoding}")
+        except UnicodeEncodeError as exc:
+            raise RuntimeError(f"Cannot write output file {out} with system encoding {system_encoding}") from exc
         produced.append(out)
 
     else:
