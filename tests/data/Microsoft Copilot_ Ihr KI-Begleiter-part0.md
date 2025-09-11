@@ -1,8 +1,10 @@
-### User
+# Chat Session
+
+## User
 
 Wie du magst, sei kreativ.
 
-### Assistant
+## Assistant
 
 Dann kommt hier mein kreativer Gruß – als Easter Egg im Code, ganz im Stil eines augenzwinkernden Entwickler-Kommentars 😄html Kopieren
 Oder, wenn du es lieber poetisch magst:html Kopieren

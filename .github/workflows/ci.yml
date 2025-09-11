@@ -9,8 +9,37 @@ on:
   pull_request:
 
 jobs:
-  build:
-    name: Lint, Typecheck, Test
+  pre-commit:
+    name: Pre-commit (lint, typecheck, security)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c
+        with:
+          python-version: "3.13"
+          cache: "pip"
+
+      - name: Install package and dev deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Cache pre-commit
+        uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809
+        with:
+          path: ~/.cache/pre-commit
+          key: ${{ runner.os }}-pre-commit-${{ hashFiles('.pre-commit-config.yaml') }}
+          restore-keys: ${{ runner.os }}-pre-commit-
+
+      - name: Pre-commit (format, lint, security, REUSE)
+        run: pre-commit run --all-files
+
+  test:
+    name: Test
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -31,23 +60,6 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
-
-      - name: Cache pre-commit
-        uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809
-        with:
-          path: ~/.cache/pre-commit
-          key: ${{ runner.os }}-pre-commit-${{ hashFiles('.pre-commit-config.yaml') }}
-          restore-keys: ${{ runner.os }}-pre-commit-
-
-      - name: Pre-commit (format, lint, security, REUSE)
-        run: pre-commit run --all-files
-
-      - name: pip-audit (vulnerabilities)
-        run: pip-audit . || true  # non-blocking by default; set to fail if you prefer
-
-      - name: Type-check (mypy)
-        run: |
-          mypy src
 
       - name: Tests (pytest)
         run: |

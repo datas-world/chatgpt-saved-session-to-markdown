@@ -46,6 +46,14 @@ repos:
       - id: interrogate
         args: ["-c", "pyproject.toml", "-v"]
 
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.17.1
+    hooks:
+      - id: mypy
+        args: ["--explicit-package-bases", "--ignore-missing-imports"]
+        files: ^src/
+        additional_dependencies: [types-beautifulsoup4, types-lxml]
+
   - repo: https://github.com/codespell-project/codespell
     rev: v2.4.1
     hooks:

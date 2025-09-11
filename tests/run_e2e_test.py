@@ -44,8 +44,8 @@ def validate_microsoft_copilot_content(content, strict=True):
         AssertionError: If validation fails (in strict mode or if assertions are triggered).
     """
     # Basic conversation structure should be present
-    has_user = "### User" in content
-    has_assistant = "### Assistant" in content
+    has_user = "## User" in content
+    has_assistant = "## Assistant" in content
 
     if strict:
         # Verify conversation structure (strict mode for MHTML)
@@ -310,8 +310,8 @@ def test_chatgpt_compatibility():
         content = output_files[0].read_text()
 
         # Verify conversation structure
-        assert "### User" in content, "User messages not found in output"  # nosec
-        assert "### Assistant" in content, "Assistant messages not found in output"  # nosec
+        assert "## User" in content, "User messages not found in output"  # nosec
+        assert "## Assistant" in content, "Assistant messages not found in output"  # nosec
         print("✓ Found conversation structure (User/Assistant)")
 
         # Verify specific content
