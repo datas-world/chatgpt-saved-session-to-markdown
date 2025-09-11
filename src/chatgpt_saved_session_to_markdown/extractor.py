@@ -20,7 +20,7 @@ from pathlib import Path
 
 import pypdf
 from bs4 import BeautifulSoup, Tag
-from markdownify import markdownify as _md  # type: ignore[import-not-found]
+from markdownify import markdownify as _md  # type: ignore[import-untyped]
 
 LOGGER = logging.getLogger(__name__)
 
@@ -75,7 +75,7 @@ def _warn_better_format_guess_for_pdf(pages_extracted: int, text_len: int, path:
     """Warn that PDF is less preferred than HTML/MHTML."""
     LOGGER.warning(
         "%s: PDF text extraction is best-effort and loses structure. "
-        "Prefer HTML or MHTML exports whenever available."
+        "Prefer HTML or MHTML exports whenever available.",
         path,
     )
 
@@ -214,10 +214,10 @@ def try_extract_messages_with_roles(html: str) -> list[tuple[str, str]] | None:
     out: list[tuple[str, str]] = []
 
     # Structured exports (preferred)
-    for el in soup.select("[data-message-author-role]"):
-        if not hasattr(el, "get"):
+    for el1 in soup.select("[data-message-author-role]"):
+        if not hasattr(el1, "get"):
             continue
-        role_raw = el.get("data-message-author-role")
+        role_raw = el1.get("data-message-author-role")
         if role_raw is None:
             continue
         # Handle different types from BeautifulSoup get()
@@ -227,7 +227,7 @@ def try_extract_messages_with_roles(html: str) -> list[tuple[str, str]] | None:
             role = str(role_raw).strip().lower()
         if role in {"user", "assistant", "system", "gpt"}:
             content = (
-                el.select_one(".markdown, .prose, .message-content, [data-message-content]") or el
+                el1.select_one(".markdown, .prose, .message-content, [data-message-content]") or el1
             )
             if hasattr(content, "decode_contents"):
                 body_html = content.decode_contents()
@@ -242,11 +242,11 @@ def try_extract_messages_with_roles(html: str) -> list[tuple[str, str]] | None:
 
     # Heuristic class-based (with filtering for actual conversation content)
     candidates = soup.find_all(["div", "section", "article"], class_=True)
-    for el in candidates:
-        if not isinstance(el, Tag):
+    for el2 in candidates:
+        if not isinstance(el2, Tag):
             continue
         # Elements from find_all with specific tag names are always Tag objects
-        class_raw = el.get("class", None)
+        class_raw = el2.get("class", None)
         if class_raw is None:
             continue
         if isinstance(class_raw, list):
@@ -260,19 +260,32 @@ def try_extract_messages_with_roles(html: str) -> list[tuple[str, str]] | None:
         )
         if role != "unknown":
             # Filter out UI elements by checking for meaningful content
-            text_content = el.get_text().strip()
+            text_content = el2.get_text().strip()
             if len(text_content) < 20:  # Skip short UI elements
                 continue
-            
+
             # Skip elements that are clearly UI components
-            if any(ui_term in classes for ui_term in (
-                "absolute", "relative", "fixed", "sticky", "hidden", "pointer-events-none",
-                "bottom-0", "top-0", "z-10", "z-20", "overlay", "backdrop"
-            )):
+            if any(
+                ui_term in classes
+                for ui_term in (
+                    "absolute",
+                    "relative",
+                    "fixed",
+                    "sticky",
+                    "hidden",
+                    "pointer-events-none",
+                    "bottom-0",
+                    "top-0",
+                    "z-10",
+                    "z-20",
+                    "overlay",
+                    "backdrop",
+                )
+            ):
                 continue
 
             content = (
-                el.select_one(".markdown, .prose, .message-content, [data-message-content]") or el
+                el2.select_one(".markdown, .prose, .message-content, [data-message-content]") or el2
             )
             if hasattr(content, "decode_contents"):
                 out.append((role, content.decode_contents()))
@@ -280,11 +293,11 @@ def try_extract_messages_with_roles(html: str) -> list[tuple[str, str]] | None:
         return out
 
     # ARIA/data-role hints
-    for el in soup.select('[aria-label*="User" i], [aria-label*="Assistant" i], [data-role]'):
-        if not hasattr(el, "get"):
+    for el3 in soup.select('[aria-label*="User" i], [aria-label*="Assistant" i], [data-role]'):
+        if not hasattr(el3, "get"):
             continue
-        aria_raw = el.get("aria-label")
-        drole_raw = el.get("data-role")
+        aria_raw = el3.get("aria-label")
+        drole_raw = el3.get("data-role")
 
         # Handle different types from BeautifulSoup get()
         if isinstance(aria_raw, list):
@@ -302,42 +315,44 @@ def try_extract_messages_with_roles(html: str) -> list[tuple[str, str]] | None:
             if "assistant" in aria or "assistant" in drole
             else ("user" if "user" in aria or "user" in drole else "unknown")
         )
-        if role != "unknown" and hasattr(el, "decode_contents"):
-            out.append((role, el.decode_contents()))
+        if role != "unknown" and hasattr(el3, "decode_contents"):
+            out.append((role, el3.decode_contents()))
     return out or None
 
 
 def _extract_copilot_messages(chat_container) -> list[tuple[str, str]] | None:
     """Extract conversation messages from Microsoft Copilot chat container."""
-    
-    
     # Get the full text content and parse it for conversation patterns
     full_text = chat_container.get_text()
-    
+
     # Microsoft Copilot pattern: "Sie sagten" followed by content, then "Copilot sagt[e]" followed by content
     messages = []
-    
+
     # Split by "Sie sagten" to get conversation segments
-    segments = full_text.split('Sie sagten')[1:]  # Skip first split (before first "Sie sagten")
-    
+    segments = full_text.split("Sie sagten")[1:]  # Skip first split (before first "Sie sagten")
+
     for segment in segments:
         # Look for Copilot responses (handling both "Copilot sagt" and "Copilot sagte")
-        copilot_match = re.search(r'Copilot sagt[e]?(.+?)(?=Sie sagten|Nachricht an Copilot|$)', segment, re.DOTALL)
+        copilot_match = re.search(
+            r"Copilot sagt[e]?(.+?)(?=Sie sagten|Nachricht an Copilot|$)", segment, re.DOTALL
+        )
         if copilot_match:
             # Extract user message (everything before "Copilot sagt[e]")
-            user_split = re.split(r'Copilot sagt[e]?', segment, 1)
+            user_split = re.split(r"Copilot sagt[e]?", segment, 1)
             if len(user_split) > 0:
                 user_content = user_split[0].strip()
                 if user_content and len(user_content) > 5:
                     messages.append(("user", user_content))
-            
+
             # Extract assistant message
             assistant_content = copilot_match.group(1).strip()
             # Remove trailing input prompts and UI text
-            assistant_content = re.sub(r'Nachricht an Copilot.*$', '', assistant_content, flags=re.DOTALL).strip()
+            assistant_content = re.sub(
+                r"Nachricht an Copilot.*$", "", assistant_content, flags=re.DOTALL
+            ).strip()
             if assistant_content and len(assistant_content) > 5:
                 messages.append(("assistant", assistant_content))
-    
+
     return messages if messages else None
 
 
