@@ -24,7 +24,7 @@ from pathlib import Path
 
 import pypdf
 from bs4 import BeautifulSoup, Tag
-from markdownify import markdownify as _md  # type: ignore[import-untyped]
+from markdownify import markdownify as _md
 
 LOGGER = logging.getLogger(__name__)
 
@@ -525,6 +525,22 @@ def _extract_copilot_messages(chat_container: Tag) -> list[tuple[str, str]] | No
     return messages if messages else None
 
 
+def _extract_dialogue_title(html: str) -> str:
+    """Extract a title for the dialogue from HTML content."""
+    soup = BeautifulSoup(html, "lxml")
+    # Try to extract from HTML title tag
+    title_tag = soup.find("title")
+    if title_tag and title_tag.get_text(strip=True):
+        title = title_tag.get_text(strip=True)
+        # Clean up common ChatGPT/Copilot title patterns
+        title = re.sub(r"\s*-\s*(ChatGPT|Microsoft Copilot|OpenAI).*$", "", title, flags=re.I)
+        if title and len(title.strip()) > 0:
+            return title.strip()
+
+    # Fall back to a default title
+    return "Chat Session"
+
+
 def dialogue_html_to_md(
     html: str,
     resources: dict[str, tuple[str, bytes]] | None = None,
@@ -535,13 +551,16 @@ def dialogue_html_to_md(
 
     msgs = try_extract_messages_with_roles(html_inlined)
     if msgs:
-        blocks: list[str] = []
+        # Extract dialogue title
+        title = _extract_dialogue_title(html_inlined)
+
+        blocks: list[str] = [f"# {title}"]
         for role, body in msgs:
             role_label = "User" if role == "user" else "Assistant"
             md = _html_to_markdown(body).strip()
             if md:
-                blocks.append(f"### {role_label}\n\n{md}")
-        if blocks:
+                blocks.append(f"## {role_label}\n\n{md}")
+        if len(blocks) > 1:  # Only return if we have title + at least one message
             return ("\n\n".join(blocks)).strip() + "\n"
 
     return _html_to_markdown(html_inlined)

@@ -46,8 +46,8 @@ def test_microsoft_copilot_mhtml_e2e():
         content = output_file.read_text(encoding="utf-8")
 
         # Verify conversation structure
-        assert "### User" in content, "User messages not found in output"  # nosec
-        assert "### Assistant" in content, "Assistant messages not found in output"  # nosec
+        assert "## User" in content, "User messages not found in output"  # nosec
+        assert "## Assistant" in content, "Assistant messages not found in output"  # nosec
 
         # Verify specific content from the test file
         assert "Wie du magst, sei kreativ" in content, "Expected user message not found"  # nosec
@@ -61,8 +61,8 @@ def test_microsoft_copilot_mhtml_e2e():
 
         # Verify clean markdown structure
         lines = content.split("\n")
-        user_lines = [i for i, line in enumerate(lines) if line.strip() == "### User"]
-        assistant_lines = [i for i, line in enumerate(lines) if line.strip() == "### Assistant"]
+        user_lines = [i for i, line in enumerate(lines) if line.strip() == "## User"]
+        assistant_lines = [i for i, line in enumerate(lines) if line.strip() == "## Assistant"]
 
         assert len(user_lines) > 0, "No user message headers found"  # nosec
         assert len(assistant_lines) > 0, "No assistant message headers found"  # nosec
@@ -228,8 +228,8 @@ def test_chatgpt_compatibility():
         content = output_files[0].read_text(encoding="utf-8")
 
         # Verify conversation structure
-        assert "### User" in content, "User messages not found in output"  # nosec
-        assert "### Assistant" in content, "Assistant messages not found in output"  # nosec
+        assert "## User" in content, "User messages not found in output"  # nosec
+        assert "## Assistant" in content, "Assistant messages not found in output"  # nosec
 
         # Verify specific content
         assert "help me with Python" in content, "Expected user message not found"  # nosec
