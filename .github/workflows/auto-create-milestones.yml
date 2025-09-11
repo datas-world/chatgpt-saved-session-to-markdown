@@ -10,7 +10,7 @@ on:
     inputs:
       version:
         description: 'Version to derive next milestones from (e.g., 1.2.3)'
-        required: false
+        required: true
         type: string
   # Tag creation
   push:
@@ -36,10 +36,6 @@ jobs:
         run: |
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
             VERSION="${{ github.event.inputs.version }}"
-            if [[ -z "$VERSION" ]]; then
-              echo "::error::Version input is required for manual trigger"
-              exit 1
-            fi
           elif [[ "${{ github.event_name }}" == "push" ]]; then
             VERSION="${GITHUB_REF_NAME}"
           elif [[ "${{ github.event_name }}" == "release" ]]; then
@@ -59,7 +55,7 @@ jobs:
           echo "Processing version: $VERSION"
 
       - name: Calculate next versions and create milestones
-        uses: actions/github-script@60a0d83039c74a4adc46c0e62bfe42ce28e0a97b
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd
         with:
           script: |
             const version = '${{ steps.version.outputs.version }}';
