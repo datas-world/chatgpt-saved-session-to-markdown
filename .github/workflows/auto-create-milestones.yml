@@ -1,0 +1,131 @@
+# Copyright (C) 2025 Torsten Knodt and contributors
+# GNU General Public License
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+name: Auto-Create GitHub Milestones
+
+on:
+  # Manual trigger
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to derive next milestones from (e.g., 1.2.3)'
+        required: false
+        type: string
+  # Tag creation
+  push:
+    tags:
+      # Exact semver regex from semver.org (no leading v allowed)
+      - '^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$'
+  # Release/package upload
+  release:
+    types: [published]
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  create-milestones:
+    name: Create Next Version Milestones
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Determine version to process
+        id: version
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            VERSION="${{ github.event.inputs.version }}"
+            if [[ -z "$VERSION" ]]; then
+              echo "::error::Version input is required for manual trigger"
+              exit 1
+            fi
+          elif [[ "${{ github.event_name }}" == "push" ]]; then
+            VERSION="${GITHUB_REF_NAME}"
+          elif [[ "${{ github.event_name }}" == "release" ]]; then
+            VERSION="${{ github.event.release.tag_name }}"
+          else
+            echo "::error::Unexpected trigger event: ${{ github.event_name }}"
+            exit 1
+          fi
+          
+          # Validate semver format
+          if [[ ! "$VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-.*)?(\+.*)?$ ]]; then
+            echo "::error::Invalid semantic version format: $VERSION"
+            exit 1
+          fi
+          
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Processing version: $VERSION"
+
+      - name: Calculate next versions and create milestones
+        uses: actions/github-script@60a0d83039c74a4adc46c0e62bfe42ce28e0a97b
+        with:
+          script: |
+            const version = '${{ steps.version.outputs.version }}';
+            console.log(`Processing version: ${version}`);
+            
+            // Parse semantic version
+            const match = version.match(/^(\d+)\.(\d+)\.(\d+)(?:-.*)?(?:\+.*)?$/);
+            if (!match) {
+              core.setFailed(`Failed to parse semantic version: ${version}`);
+              return;
+            }
+            
+            const [, major, minor, patch] = match.map(Number);
+            console.log(`Parsed version: ${major}.${minor}.${patch}`);
+            
+            // Calculate next versions
+            const nextVersions = [
+              `${major + 1}.0.0`,  // Next major
+              `${major}.${minor + 1}.0`,  // Next minor
+              `${major}.${minor}.${patch + 1}`  // Next patch
+            ];
+            
+            console.log(`Next versions to create: ${nextVersions.join(', ')}`);
+            
+            // Get existing milestones
+            const { data: existingMilestones } = await github.rest.issues.listMilestones({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'all'
+            });
+            
+            const existingTitles = new Set(existingMilestones.map(m => m.title));
+            console.log(`Existing milestones: ${Array.from(existingTitles).join(', ')}`);
+            
+            // Create milestones that don't exist
+            const created = [];
+            const skipped = [];
+            
+            for (const nextVersion of nextVersions) {
+              if (existingTitles.has(nextVersion)) {
+                skipped.push(nextVersion);
+                console.log(`Milestone already exists: ${nextVersion}`);
+              } else {
+                try {
+                  await github.rest.issues.createMilestone({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    title: nextVersion,
+                    description: `Release milestone for version ${nextVersion}`
+                  });
+                  created.push(nextVersion);
+                  console.log(`Created milestone: ${nextVersion}`);
+                } catch (error) {
+                  console.error(`Failed to create milestone ${nextVersion}: ${error.message}`);
+                }
+              }
+            }
+            
+            // Summary
+            console.log(`\n=== Summary ===`);
+            console.log(`Base version: ${version}`);
+            console.log(`Created milestones: ${created.length > 0 ? created.join(', ') : 'none'}`);
+            console.log(`Skipped milestones: ${skipped.length > 0 ? skipped.join(', ') : 'none'}`);
+            
+            if (created.length > 0) {
+              core.summary.addHeading('🎯 Auto-Created Milestones');
+              core.summary.addList(created.map(v => `Version ${v}`));
+              await core.summary.write();
+            }
