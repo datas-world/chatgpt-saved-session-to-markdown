@@ -94,7 +94,7 @@ plugins = [  ]
 
 [tool.bandit]
 skips = [ "B404", "B603", "B607" ] # Skip subprocess import and execution warnings for test files
-exclude_dirs = ["tests"]
+exclude_dirs = [ "tests" ]
 
 [tool.bandit.assert_used]
 skips = [ 'tests/*_tests.py', 'tests/test_*.py' ]
