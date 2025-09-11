@@ -336,10 +336,12 @@ def test_chatgpt_compatibility():
 
         # Only check for the later content if we have a reasonable amount of content
         if len(content) > 200:
-            checks.extend([
-                ("create a list", "Expected user question not found"),
-                ("square brackets", "Expected assistant answer not found")
-            ])
+            checks.extend(
+                [
+                    ("create a list", "Expected user question not found"),
+                    ("square brackets", "Expected assistant answer not found"),
+                ]
+            )
 
         for check_text, error_msg in checks:
             found = check_text in content

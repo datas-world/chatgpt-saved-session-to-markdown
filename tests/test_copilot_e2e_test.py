@@ -255,6 +255,7 @@ if __name__ == "__main__":
     else:
         # Simple fallback test runner
         import sys
+
         print("pytest not available, running tests directly...")
 
         tests = [
