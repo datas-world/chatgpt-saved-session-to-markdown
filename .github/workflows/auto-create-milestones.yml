@@ -33,33 +33,81 @@ jobs:
           
       - name: Determine version to process
         id: version
-        run: |
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            # For manual trigger, find the latest tag/release version
-            LATEST_TAG=$(git tag --list --sort=-version:refname | grep -E '^\d+\.\d+\.\d+$' | head -n1)
-            if [[ -z "$LATEST_TAG" ]]; then
-              echo "::error::No valid major.minor.patch tags found in repository"
-              exit 1
-            fi
-            VERSION="$LATEST_TAG"
-            echo "Found latest version from tags: $VERSION"
-          elif [[ "${{ github.event_name }}" == "push" ]]; then
-            VERSION="${GITHUB_REF_NAME}"
-          elif [[ "${{ github.event_name }}" == "release" ]]; then
-            VERSION="${{ github.event.release.tag_name }}"
-          else
-            echo "::error::Unexpected trigger event: ${{ github.event_name }}"
-            exit 1
-          fi
-          
-          # Validate major.minor.patch format only
-          if [[ ! "$VERSION" =~ ^\d+\.\d+\.\d+$ ]]; then
-            echo "::error::Invalid major.minor.patch version format: $VERSION"
-            exit 1
-          fi
-          
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "Processing version: $VERSION"
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v7.0.1
+        with:
+          script: |
+            if (context.eventName === 'workflow_dispatch') {
+              // For manual trigger, merge versions from both tags and releases
+              console.log('Manual trigger: discovering all versions from tags and releases');
+              
+              // Get all tags that match major.minor.patch format
+              const { execSync } = require('child_process');
+              const tagOutput = execSync('git tag --list', { encoding: 'utf-8' }).trim();
+              const allTags = tagOutput ? tagOutput.split('\n') : [];
+              const validTags = allTags.filter(tag => /^\d+\.\d+\.\d+$/.test(tag));
+              console.log(`Found ${validTags.length} valid tags: ${validTags.join(', ')}`);
+              
+              // Get all releases that match major.minor.patch format
+              const { data: releases } = await github.rest.repos.listReleases({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                per_page: 100
+              });
+              const validReleases = releases
+                .map(release => release.tag_name)
+                .filter(tag => /^\d+\.\d+\.\d+$/.test(tag));
+              console.log(`Found ${validReleases.length} valid releases: ${validReleases.join(', ')}`);
+              
+              // Merge and deduplicate all versions
+              const allVersions = [...new Set([...validTags, ...validReleases])];
+              console.log(`All unique versions: ${allVersions.join(', ')}`);
+              
+              if (allVersions.length === 0) {
+                core.setFailed('No valid major.minor.patch versions found in tags or releases');
+                return;
+              }
+              
+              // Sort versions and get the highest one
+              const sortedVersions = allVersions.sort((a, b) => {
+                const [aMajor, aMinor, aPatch] = a.split('.').map(Number);
+                const [bMajor, bMinor, bPatch] = b.split('.').map(Number);
+                
+                if (aMajor !== bMajor) return bMajor - aMajor;
+                if (aMinor !== bMinor) return bMinor - aMinor;
+                return bPatch - aPatch;
+              });
+              
+              const latestVersion = sortedVersions[0];
+              console.log(`Latest version found: ${latestVersion}`);
+              core.setOutput('version', latestVersion);
+              
+            } else if (context.eventName === 'push') {
+              const version = context.ref.replace('refs/tags/', '');
+              console.log(`Tag push trigger: ${version}`);
+              
+              // Validate major.minor.patch format only
+              if (!/^\d+\.\d+\.\d+$/.test(version)) {
+                core.setFailed(`Invalid major.minor.patch version format: ${version}`);
+                return;
+              }
+              
+              core.setOutput('version', version);
+              
+            } else if (context.eventName === 'release') {
+              const version = context.payload.release.tag_name;
+              console.log(`Release trigger: ${version}`);
+              
+              // Validate major.minor.patch format only
+              if (!/^\d+\.\d+\.\d+$/.test(version)) {
+                core.setFailed(`Invalid major.minor.patch version format: ${version}`);
+                return;
+              }
+              
+              core.setOutput('version', version);
+              
+            } else {
+              core.setFailed(`Unexpected trigger event: ${context.eventName}`);
+            }
 
       - name: Calculate next versions and create milestones
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v7.0.1
