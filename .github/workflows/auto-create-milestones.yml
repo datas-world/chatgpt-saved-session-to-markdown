@@ -69,7 +69,7 @@ jobs:
               }
               
               // Process all versions (not just the latest)
-              console.log(`Processing all ${allVersions.length} versions for milestone creation`);
+              console.log(`Processing all ${allVersions.length} versions for milestone creation.`);
               core.setOutput('versions', JSON.stringify(allVersions));
               
             } else if (context.eventName === 'push') {
