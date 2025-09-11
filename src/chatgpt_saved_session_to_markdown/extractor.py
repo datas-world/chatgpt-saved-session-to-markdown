@@ -141,7 +141,8 @@ def _decode_content_transfer_encoding(payload: bytes, encoding: str | None) -> b
     else:
         # Unknown encoding - raise error for strict validation
         raise RuntimeError(
-            f"Unknown Content-Transfer-Encoding '{encoding}'. Strict validation requires known encoding."
+            f"Unknown Content-Transfer-Encoding '{encoding}'. "
+            f"Strict validation requires known encoding."
         )
 
 
@@ -198,7 +199,8 @@ def _get_email_charset_or_error(message: Message, context: str) -> str:
         return "us-ascii"
 
     raise ValueError(
-        f"No charset specified and content type '{content_type}' in {context} - cannot determine encoding"
+        f"No charset specified and content type '{content_type}' in {context} - "
+        f"cannot determine encoding"
     )
 
 
