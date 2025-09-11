@@ -57,9 +57,9 @@ When tests fail, a **deep root-cause analysis** is required following this proce
 
 1. **Determine failure type**:
 
-   - Implementation error (code bug)
-   - Test error (incorrect test assumptions)
-   - Environment issue (dependency, configuration)
+  - Implementation error (code bug)
+  - Test error (incorrect test assumptions)
+  - Environment issue (dependency, configuration)
 
 2. **Document findings** in commit messages or pull request descriptions
 
