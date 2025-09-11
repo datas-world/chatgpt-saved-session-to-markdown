@@ -7,12 +7,14 @@
 from __future__ import annotations
 
 import base64
+import locale
 import logging
 import os
 import quopri
 import re
 from collections.abc import Sequence
-from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
+from concurrent.futures import as_completed
 from email import policy
 from email.message import Message
 from email.parser import BytesParser
@@ -127,6 +129,55 @@ def _decode_content_transfer_encoding(payload: bytes, encoding: str | None) -> b
         return payload
 
 
+def _get_system_encoding() -> str:
+    """Get the system's preferred encoding for text files.
+    
+    Returns the locale encoding, falling back to US-ASCII per RFC standards
+    if locale detection fails.
+    """
+    try:
+        encoding = locale.getpreferredencoding(False)
+        if encoding and encoding.lower() not in ('ascii', 'us-ascii'):
+            return encoding
+    except (AttributeError, LookupError):
+        pass
+    # Fallback to US-ASCII per RFC standards
+    return 'us-ascii'
+
+
+def _get_email_charset_or_error(message: Message, context: str) -> str:
+    """Get charset from email message or raise error if not available.
+    
+    Per RFC 2822/5322, if no charset is specified for text/* content,
+    US-ASCII should be assumed.
+    
+    Args:
+        message: Email message object
+        context: Context string for error messages
+        
+    Returns:
+        Charset string
+        
+    Raises:
+        ValueError: If charset cannot be determined or is invalid
+    """
+    charset = message.get_content_charset()
+    if charset:
+        # Validate that the charset is usable
+        try:
+            "test".encode(charset)
+            return charset
+        except (LookupError, ValueError) as exc:
+            raise ValueError(f"Invalid charset '{charset}' in {context}") from exc
+    
+    # Per RFC standards, default to US-ASCII for text content if no charset specified
+    content_type = message.get_content_type() or ""
+    if content_type.startswith("text/"):
+        return "us-ascii"
+    
+    raise ValueError(f"No charset specified and content type '{content_type}' in {context} - cannot determine encoding")
+
+
 def _extract_and_decode_payload(message: Message, log_context: str) -> bytes:
     """Extract and decode payload from email message with proper charset handling.
     
@@ -136,21 +187,19 @@ def _extract_and_decode_payload(message: Message, log_context: str) -> bytes:
         
     Returns:
         Decoded payload bytes
+        
+    Raises:
+        ValueError: If charset cannot be determined or is invalid
     """
     # Get raw payload and Content-Transfer-Encoding
     raw_payload = message.get_payload(decode=False)
     if isinstance(raw_payload, str):
-        # Use message's charset with robust fallback
-        charset = message.get_content_charset() or "utf-8"
+        # Get charset with error handling - no UTF-8 fallback
+        charset = _get_email_charset_or_error(message, log_context)
         try:
             raw_payload = raw_payload.encode(charset)
-        except (UnicodeEncodeError, LookupError):
-            # Fallback to utf-8 if charset is invalid or encoding fails
-            try:
-                raw_payload = raw_payload.encode("utf-8")
-            except UnicodeEncodeError:
-                # Last resort: encode with error replacement
-                raw_payload = raw_payload.encode("utf-8", errors="replace")
+        except UnicodeEncodeError as exc:
+            raise ValueError(f"Cannot encode payload with charset '{charset}' in {log_context}") from exc
     elif raw_payload is None:
         raw_payload = b""
     
@@ -186,12 +235,14 @@ def _build_resource_map_from_mhtml(path: Path) -> tuple[list[str], dict[str, tup
             payload = _extract_and_decode_payload(sub, path.name)
             
             if ctype.startswith("text/html"):
-                charset = sub.get_content_charset() or "utf-8"
+                # Get charset with proper error handling
                 try:
+                    charset = _get_email_charset_or_error(sub, f"{path.name} HTML part")
                     text = payload.decode(charset, errors="replace")
-                except (UnicodeDecodeError, LookupError):
-                    # Fallback to utf-8 if charset is invalid
-                    text = payload.decode("utf-8", errors="replace")
+                except ValueError as exc:
+                    # Log warning but continue processing - treat as binary if charset issues
+                    LOGGER.warning("HTML part charset error in %s: %s", path.name, exc)
+                    continue
                 html_parts.append(text)
             else:
                 cid = (sub.get("Content-ID") or "").strip().strip("<>").strip()
@@ -205,14 +256,15 @@ def _build_resource_map_from_mhtml(path: Path) -> tuple[list[str], dict[str, tup
             # Extract and decode payload using helper function
             payload = _extract_and_decode_payload(msg, path.name)
             
-            charset = msg.get_content_charset() or "utf-8"
+            # Get charset with proper error handling
             try:
+                charset = _get_email_charset_or_error(msg, f"{path.name} main HTML")
                 html_text = payload.decode(charset, errors="replace")
-            except (UnicodeDecodeError, LookupError):
-                # Fallback to utf-8 if charset is invalid
-                html_text = payload.decode("utf-8", errors="replace")
-            
-            html_parts.append(html_text)
+                html_parts.append(html_text)
+            except ValueError as exc:
+                # Log error and skip if charset cannot be determined
+                LOGGER.error("Main HTML charset error in %s: %s", path.name, exc)
+                # Don't add to html_parts if we can't decode it
     return html_parts, resources
 
 
@@ -378,18 +430,33 @@ def _process_single(path: Path, outdir: Path | None) -> list[Path]:
             if not md.strip():
                 raise RuntimeError(f"No extractable content in {path} part {i}")
             out = (outdir or path.parent) / f"{path.stem}-part{i}.md"
-            out.write_text(md, encoding="utf-8")
+            # Use system encoding for output files
+            system_encoding = _get_system_encoding()
+            try:
+                out.write_text(md, encoding=system_encoding)
+            except UnicodeEncodeError:
+                # If system encoding fails, raise error instead of falling back
+                raise RuntimeError(f"Cannot write output file {out} with system encoding {system_encoding}")
             produced.append(out)
 
     elif suffix in (".html", ".htm"):
         LOGGER.info("Processing HTML: %s", path)
-        html = path.read_text(encoding="utf-8", errors="replace")
+        # Use system encoding for reading HTML files
+        system_encoding = _get_system_encoding()
+        try:
+            html = path.read_text(encoding=system_encoding, errors="replace")
+        except UnicodeDecodeError:
+            raise RuntimeError(f"Cannot read HTML file {path} with system encoding {system_encoding}")
         _warn_better_format_guess_for_html(html)
         md = dialogue_html_to_md(html, resources=None, log_prefix=f"[{path.name}] ")
         if not md.strip():
             raise RuntimeError(f"No extractable content in {path}")
         out = (outdir or path.parent) / f"{path.stem}.md"
-        out.write_text(md, encoding="utf-8")
+        # Use system encoding for output files
+        try:
+            out.write_text(md, encoding=system_encoding)
+        except UnicodeEncodeError:
+            raise RuntimeError(f"Cannot write output file {out} with system encoding {system_encoding}")
         produced.append(out)
 
     elif suffix == ".pdf":
@@ -399,7 +466,12 @@ def _process_single(path: Path, outdir: Path | None) -> list[Path]:
         if not text.strip():
             raise RuntimeError(f"No extractable content in {path}")
         out = (outdir or path.parent) / f"{path.stem}.md"
-        out.write_text(text.strip() + "\n", encoding="utf-8")
+        # Use system encoding for output files
+        system_encoding = _get_system_encoding()
+        try:
+            out.write_text(text.strip() + "\n", encoding=system_encoding)
+        except UnicodeEncodeError:
+            raise RuntimeError(f"Cannot write output file {out} with system encoding {system_encoding}")
         produced.append(out)
 
     else:
