@@ -24,7 +24,7 @@ from pathlib import Path
 
 import pypdf
 from bs4 import BeautifulSoup, Tag
-from markdownify import markdownify as _md  # type: ignore[import-untyped]
+from markdownify import markdownify as _md
 
 LOGGER = logging.getLogger(__name__)
 

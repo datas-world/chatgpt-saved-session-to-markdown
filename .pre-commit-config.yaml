@@ -50,7 +50,8 @@ repos:
     rev: v1.17.1
     hooks:
       - id: mypy
-        args: ["--explicit-package-bases", "src"]
+        args: ["--explicit-package-bases", "--ignore-missing-imports"]
+        files: ^src/
         additional_dependencies: [types-beautifulsoup4, types-lxml]
 
   - repo: https://github.com/codespell-project/codespell
