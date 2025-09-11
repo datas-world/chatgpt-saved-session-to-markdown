@@ -35,7 +35,7 @@ jobs:
           key: ${{ runner.os }}-pre-commit-${{ hashFiles('.pre-commit-config.yaml') }}
           restore-keys: ${{ runner.os }}-pre-commit-
 
-      - name: Pre-commit (format, lint, security, type-check, REUSE)
+      - name: Pre-commit (format, lint, security, REUSE)
         run: pre-commit run --all-files
 
   test:
