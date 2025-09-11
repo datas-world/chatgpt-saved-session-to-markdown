@@ -227,7 +227,7 @@ def try_extract_messages_with_roles(html: str) -> list[tuple[str, str]] | None:
 
 def _extract_copilot_messages(chat_container) -> list[tuple[str, str]] | None:
     """Extract conversation messages from Microsoft Copilot chat container."""
-    import re
+    
     
     # Get the full text content and parse it for conversation patterns
     full_text = chat_container.get_text()
