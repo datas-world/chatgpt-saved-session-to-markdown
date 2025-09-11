@@ -197,7 +197,7 @@ def test_chatgpt_compatibility():
             "</div>\n"
             '<div data-message-author-role="assistant">\n'
             '    <div class="message-content">You can create a list in Python using '
-            'square brackets: <code>my_list = [1, 2, 3]</code></div>\n'
+            "square brackets: <code>my_list = [1, 2, 3]</code></div>\n"
             "</div>\n"
             "</body>\n"
             "</html>"
