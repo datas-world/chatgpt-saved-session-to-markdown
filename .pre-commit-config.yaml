@@ -57,6 +57,7 @@ repos:
     hooks:
       - id: bandit
         args: ["-c", "pyproject.toml", "-r", "src"]
+        additional_dependencies: ["bandit[toml]"]
 
   # ---------- REUSE: SPDX headers & license lint ----------
   - repo: https://github.com/fsfe/reuse-tool

@@ -48,18 +48,20 @@ def validate_microsoft_copilot_content(content, strict=True):
 
     if strict:
         # Verify conversation structure (strict mode for MHTML)
-        assert has_user, "User messages not found in output"
-        assert has_assistant, "Assistant messages not found in output"
+        assert has_user, "User messages not found in output"  # nosec
+        assert has_assistant, "Assistant messages not found in output"  # nosec
         print("✓ Found conversation structure (User/Assistant)")
 
         # Verify specific content from the test file
-        assert "Wie du magst, sei kreativ" in content, "Expected user message not found"
-        assert "kreativer Gruß" in content, "Expected assistant response not found"
+        assert "Wie du magst, sei kreativ" in content, "Expected user message not found"  # nosec
+        assert "kreativer Gruß" in content, "Expected assistant response not found"  # nosec
         print("✓ Found expected conversation content")
 
         # Verify no unexpected content
-        assert "Nachricht an Copilot" not in content, "UI elements leaked into conversation"
-        assert "Schnelle Antwort" not in content, "UI elements leaked into conversation"
+        assert (
+            "Nachricht an Copilot" not in content
+        ), "UI elements leaked into conversation"  # nosec
+        assert "Schnelle Antwort" not in content, "UI elements leaked into conversation"  # nosec
         print("✓ No UI elements leaked into conversation")
     else:
         # Relaxed mode for formats that may not work as well
@@ -91,7 +93,7 @@ def test_microsoft_copilot_mhtml_e2e():
     mhtml_file = test_data_dir / "Microsoft Copilot_ Ihr KI-Begleiter.mhtml"
 
     # Ensure test file exists
-    assert mhtml_file.exists(), f"Test file not found: {mhtml_file}"
+    assert mhtml_file.exists(), f"Test file not found: {mhtml_file}"  # nosec
     print(f"Found test file: {mhtml_file}")
 
     with tempfile.TemporaryDirectory() as temp_dir:
@@ -105,14 +107,14 @@ def test_microsoft_copilot_mhtml_e2e():
         result = subprocess.run(cmd, check=False, capture_output=True, text=True)
 
         # Check exit code
-        assert (
+        assert (  # nosec
             result.returncode == 0
         ), f"CLI failed with exit code {result.returncode}:\nstdout: {result.stdout}\nstderr: {result.stderr}"
         print("✓ CLI executed successfully")
 
         # Check that output file was created
         output_files = list(temp_path.glob("*.md"))
-        assert len(output_files) > 0, "No markdown files were created"
+        assert len(output_files) > 0, "No markdown files were created"  # nosec
         print(f"✓ Created {len(output_files)} output file(s): {[f.name for f in output_files]}")
 
         # Read the output
@@ -129,7 +131,7 @@ def test_microsoft_copilot_html_e2e():
     html_file = test_data_dir / "Microsoft Copilot_ Ihr KI-Begleiter.html"
 
     # Ensure test file exists
-    assert html_file.exists(), f"Test file not found: {html_file}"
+    assert html_file.exists(), f"Test file not found: {html_file}"  # nosec
     print(f"Found test file: {html_file}")
 
     with tempfile.TemporaryDirectory() as temp_dir:
@@ -144,14 +146,14 @@ def test_microsoft_copilot_html_e2e():
         )
 
         # Check exit code
-        assert (
+        assert (  # nosec
             result.returncode == 0
         ), f"CLI failed with exit code {result.returncode}:\nstdout: {result.stdout}\nstderr: {result.stderr}"
         print("✓ CLI executed successfully")
 
         # Check that output file was created
         output_files = list(temp_path.glob("*.md"))
-        assert len(output_files) > 0, "No markdown files were created"
+        assert len(output_files) > 0, "No markdown files were created"  # nosec
         print(f"✓ Created {len(output_files)} output file(s)")
 
         # Read the output
@@ -186,14 +188,14 @@ def test_microsoft_copilot_pdf_e2e():
         )
 
         # Check exit code
-        assert (
+        assert (  # nosec
             result.returncode == 0
         ), f"CLI failed with exit code {result.returncode}:\nstdout: {result.stdout}\nstderr: {result.stderr}"
         print("✓ CLI executed successfully")
 
         # Check that output file was created
         output_files = list(temp_path.glob("*.md"))
-        assert len(output_files) > 0, "No markdown files were created"
+        assert len(output_files) > 0, "No markdown files were created"  # nosec
         print(f"✓ Created {len(output_files)} output file(s)")
 
         # Read the output
@@ -228,7 +230,7 @@ def test_no_warnings_or_errors():
         )
 
         # Should succeed without errors
-        assert result.returncode == 0, f"CLI failed: {result.stderr}"
+        assert result.returncode == 0, f"CLI failed: {result.stderr}"  # nosec
         print("✓ CLI executed successfully with verbose logging")
 
         # Check for expected info messages only (no warnings or errors)
@@ -236,8 +238,10 @@ def test_no_warnings_or_errors():
         stdout_lower = result.stdout.lower()
 
         # Should not contain error messages
-        assert "error" not in stderr_lower, f"Unexpected error in output: {result.stderr}"
-        assert "traceback" not in stderr_lower, f"Unexpected traceback in output: {result.stderr}"
+        assert "error" not in stderr_lower, f"Unexpected error in output: {result.stderr}"  # nosec
+        assert (
+            "traceback" not in stderr_lower
+        ), f"Unexpected traceback in output: {result.stderr}"  # nosec
         print("✓ No errors found in output")
 
         # Print any output for review
@@ -285,29 +289,29 @@ def test_chatgpt_compatibility():
         )
 
         # Check exit code
-        assert (
+        assert (  # nosec
             result.returncode == 0
         ), f"CLI failed with exit code {result.returncode}:\nstdout: {result.stdout}\nstderr: {result.stderr}"
         print("✓ CLI executed successfully")
 
         # Check that output file was created
         output_files = list(temp_path.glob("*_test.md"))
-        assert len(output_files) > 0, "No markdown files were created"
+        assert len(output_files) > 0, "No markdown files were created"  # nosec
         print(f"✓ Created output file: {output_files[0].name}")
 
         # Read the output
         content = output_files[0].read_text(encoding="utf-8")
 
         # Verify conversation structure
-        assert "### User" in content, "User messages not found in output"
-        assert "### Assistant" in content, "Assistant messages not found in output"
+        assert "### User" in content, "User messages not found in output"  # nosec
+        assert "### Assistant" in content, "Assistant messages not found in output"  # nosec
         print("✓ Found conversation structure (User/Assistant)")
 
         # Verify specific content
-        assert "help me with Python" in content, "Expected user message not found"
-        assert "happy to help" in content, "Expected assistant response not found"
-        assert "create a list" in content, "Expected user question not found"
-        assert "square brackets" in content, "Expected assistant answer not found"
+        assert "help me with Python" in content, "Expected user message not found"  # nosec
+        assert "happy to help" in content, "Expected assistant response not found"  # nosec
+        assert "create a list" in content, "Expected user question not found"  # nosec
+        assert "square brackets" in content, "Expected assistant answer not found"  # nosec
         print("✓ Found expected ChatGPT conversation content")
 
         # Display sample of the generated content
