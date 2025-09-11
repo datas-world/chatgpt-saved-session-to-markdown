@@ -240,14 +240,13 @@ def _build_resource_map_from_mhtml(path: Path) -> tuple[list[str], dict[str, tup
             payload = _extract_and_decode_payload(sub, path.name)
             
             if ctype.startswith("text/html"):
-                # Get charset with proper error handling
+                # Get charset with strict error handling - no fallbacks
                 try:
                     charset = _get_email_charset_or_error(sub, f"{path.name} HTML part")
-                    text = payload.decode(charset, errors="replace")
-                except ValueError as exc:
-                    # Log warning but continue processing - treat as binary if charset issues
-                    LOGGER.warning("HTML part charset error in %s: %s", path.name, exc)
-                    continue
+                    text = payload.decode(charset)  # Strict decoding - raise on invalid chars
+                except (ValueError, UnicodeDecodeError) as exc:
+                    # Strict error handling - raise instead of falling back
+                    raise ValueError(f"HTML part encoding error in {path.name}: {exc}") from exc
                 html_parts.append(text)
             else:
                 cid = (sub.get("Content-ID") or "").strip().strip("<>").strip()
@@ -261,19 +260,19 @@ def _build_resource_map_from_mhtml(path: Path) -> tuple[list[str], dict[str, tup
             # Extract and decode payload using helper function
             payload = _extract_and_decode_payload(msg, path.name)
             
-            # Get charset with proper error handling
+            # Get charset with strict error handling - no fallbacks
             try:
                 charset = _get_email_charset_or_error(msg, f"{path.name} main HTML")
-                html_text = payload.decode(charset, errors="replace")
+                html_text = payload.decode(charset)  # Strict decoding - raise on invalid chars
                 html_parts.append(html_text)
-            except ValueError as exc:
-                # Log error and skip if charset cannot be determined
-                LOGGER.error("Main HTML charset error in %s: %s", path.name, exc)
-                # Don't add to html_parts if we can't decode it
+            except (ValueError, UnicodeDecodeError) as exc:
+                # Strict error handling - raise instead of falling back
+                raise ValueError(f"Main HTML encoding error in {path.name}: {exc}") from exc
     return html_parts, resources
 
 
 def _to_data_uri(mime: str, data: bytes) -> str:
+    # base64 encoding always produces ASCII-safe output per RFC 4648
     return "data:" + mime + ";base64," + base64.b64encode(data).decode("ascii")
 
 
@@ -449,9 +448,9 @@ def _process_single(path: Path, outdir: Path | None) -> list[Path]:
         # Use system encoding for reading HTML files
         system_encoding = _get_system_encoding()
         try:
-            html = path.read_text(encoding=system_encoding, errors="replace")
-        except UnicodeDecodeError:
-            raise RuntimeError(f"Cannot read HTML file {path} with system encoding {system_encoding}")
+            html = path.read_text(encoding=system_encoding)  # Strict reading - raise on decode errors
+        except UnicodeDecodeError as exc:
+            raise ValueError(f"Cannot read HTML file {path} with system encoding {system_encoding}: {exc}") from exc
         _warn_better_format_guess_for_html(html, path)
         md = dialogue_html_to_md(html, resources=None, log_prefix=f"[{path.name}] ")
         if not md.strip():
