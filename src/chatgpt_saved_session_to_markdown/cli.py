@@ -76,7 +76,7 @@ def run(
         produced = process_many(inputs, outdir, (jobs or 0))
     except Exception as exc:  # surface clear non-zero on any batch failure
         logging.error("%s", exc)
-        raise typer.Exit(code=1) as exc
+        raise typer.Exit(code=1)
     if not produced:
         logging.error("No outputs were produced.")
         raise typer.Exit(code=1)
