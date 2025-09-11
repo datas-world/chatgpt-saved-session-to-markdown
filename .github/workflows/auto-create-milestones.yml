@@ -7,16 +7,11 @@ name: Auto-Create GitHub Milestones
 on:
   # Manual trigger
   workflow_dispatch:
-    inputs:
-      version:
-        description: 'Version to derive next milestones from (e.g., 1.2.3)'
-        required: true
-        type: string
   # Tag creation
   push:
     tags:
       # Major.minor.patch semver only (no pre-release or build metadata)
-      - '^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)$'
+      - '^\d+\.\d+\.\d+$'
   # Release/package upload
   release:
     types: [published]
@@ -31,11 +26,23 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871 # v4.2.1
+        with:
+          fetch-depth: 0  # Fetch all history for tags
+          
       - name: Determine version to process
         id: version
         run: |
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            VERSION="${{ github.event.inputs.version }}"
+            # For manual trigger, find the latest tag/release version
+            LATEST_TAG=$(git tag --list --sort=-version:refname | grep -E '^\d+\.\d+\.\d+$' | head -n1)
+            if [[ -z "$LATEST_TAG" ]]; then
+              echo "::error::No valid major.minor.patch tags found in repository"
+              exit 1
+            fi
+            VERSION="$LATEST_TAG"
+            echo "Found latest version from tags: $VERSION"
           elif [[ "${{ github.event_name }}" == "push" ]]; then
             VERSION="${GITHUB_REF_NAME}"
           elif [[ "${{ github.event_name }}" == "release" ]]; then
@@ -46,7 +53,7 @@ jobs:
           fi
           
           # Validate major.minor.patch format only
-          if [[ ! "$VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+          if [[ ! "$VERSION" =~ ^\d+\.\d+\.\d+$ ]]; then
             echo "::error::Invalid major.minor.patch version format: $VERSION"
             exit 1
           fi
