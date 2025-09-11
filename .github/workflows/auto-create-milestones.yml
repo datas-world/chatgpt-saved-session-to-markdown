@@ -106,13 +106,13 @@ jobs:
           script: |
             const versionsJson = '${{ steps.version.outputs.versions }}';
             if (!versionsJson) {
-              console.log('No versions to process - exiting gracefully');
+              console.log('No versions to process - exiting gracefully.');
               return;
             }
             
             const versions = JSON.parse(versionsJson);
             if (versions.length === 0) {
-              console.log('No versions to process - exiting gracefully');
+              console.log('No versions to process - exiting gracefully.');
               return;
             }
             
