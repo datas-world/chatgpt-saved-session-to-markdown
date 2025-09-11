@@ -116,6 +116,6 @@ When in doubt about any of these requirements:
 3. **Request maintainer review** before proceeding
 4. **Wait for explicit approval** before implementing controversial changes
 
-______________________________________________________________________
+---
 
 **Note**: These instructions are binding for all GitHub Copilot interactions with this codebase. Non-compliance may result in rejected contributions and requests for complete rework.
