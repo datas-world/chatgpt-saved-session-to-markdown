@@ -536,7 +536,7 @@ def _extract_dialogue_title(html: str) -> str:
         title = re.sub(r"\s*-\s*(ChatGPT|Microsoft Copilot|OpenAI).*$", "", title, flags=re.I)
         if title and len(title.strip()) > 0:
             return title.strip()
-    
+
     # Fall back to a default title
     return "Chat Session"
 
@@ -553,7 +553,7 @@ def dialogue_html_to_md(
     if msgs:
         # Extract dialogue title
         title = _extract_dialogue_title(html_inlined)
-        
+
         blocks: list[str] = [f"# {title}"]
         for role, body in msgs:
             role_label = "User" if role == "user" else "Assistant"
