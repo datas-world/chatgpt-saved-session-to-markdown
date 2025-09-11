@@ -169,8 +169,7 @@ def _get_email_charset_or_error(message: Message, context: str) -> str:
     """Get charset from email message or raise error if not available.
 
     Per RFC 2822/5322, if no charset is specified for text/* content,
-    US-ASCII should be assumed. However, in practice many modern files
-    contain UTF-8 content without proper charset declaration.
+    US-ASCII should be assumed.
 
     See: https://tools.ietf.org/html/rfc2822#section-2.2
          https://tools.ietf.org/html/rfc5322#section-2.2
@@ -203,46 +202,6 @@ def _get_email_charset_or_error(message: Message, context: str) -> str:
         f"No charset specified and content type '{content_type}' in {context} - "
         f"cannot determine encoding"
     )
-
-
-def _decode_html_with_fallback(payload: bytes, message: Message, context: str) -> str:
-    """Decode HTML payload with intelligent charset detection and fallback.
-    
-    Tries the declared charset first, then falls back to UTF-8 if the content
-    appears to be UTF-8 encoded (common in modern MHTML files).
-    
-    Args:
-        payload: Raw bytes to decode
-        message: Email message object for charset detection
-        context: Context string for error messages
-        
-    Returns:
-        Decoded text string
-        
-    Raises:
-        ValueError: If no suitable encoding can be found
-    """
-    # First try the declared charset (RFC compliant)
-    try:
-        charset = _get_email_charset_or_error(message, context)
-        return payload.decode(charset)
-    except UnicodeDecodeError:
-        # If declared charset fails and it was ASCII, try UTF-8
-        declared_charset = message.get_content_charset()
-        if not declared_charset or declared_charset.lower() in ('us-ascii', 'ascii'):
-            try:
-                # Check if content looks like UTF-8 by trying to decode
-                text = payload.decode('utf-8')
-                LOGGER.debug(f"Falling back to UTF-8 for {context} (declared: {declared_charset or 'none'})")
-                return text
-            except UnicodeDecodeError:
-                pass
-        
-        # If UTF-8 also fails, raise the original error with helpful context
-        raise ValueError(
-            f"Cannot decode {context} with declared charset '{declared_charset or 'us-ascii'}' "
-            f"and UTF-8 fallback also failed"
-        )
 
 
 def _extract_and_decode_payload(message: Message, log_context: str) -> bytes:
@@ -306,10 +265,12 @@ def _build_resource_map_from_mhtml(
             payload = _extract_and_decode_payload(sub, path.name)
 
             if ctype.startswith("text/html"):
-                # Decode HTML with intelligent charset detection and fallback
+                # Get charset with strict error handling - no fallbacks
                 try:
-                    text = _decode_html_with_fallback(payload, sub, f"{path.name} HTML part")
-                except ValueError as exc:
+                    charset = _get_email_charset_or_error(sub, f"{path.name} HTML part")
+                    text = payload.decode(charset)  # Strict decoding - raise on invalid chars
+                except (ValueError, UnicodeDecodeError) as exc:
+                    # Strict error handling - raise instead of falling back
                     raise ValueError(f"HTML part encoding error in {path.name}: {exc}") from exc
                 html_parts.append(text)
             else:
@@ -324,11 +285,13 @@ def _build_resource_map_from_mhtml(
             # Extract and decode payload using helper function
             payload = _extract_and_decode_payload(msg, path.name)
 
-            # Decode HTML with intelligent charset detection and fallback
+            # Get charset with strict error handling - no fallbacks
             try:
-                html_text = _decode_html_with_fallback(payload, msg, f"{path.name} main HTML")
+                charset = _get_email_charset_or_error(msg, f"{path.name} main HTML")
+                html_text = payload.decode(charset)  # Strict decoding - raise on invalid chars
                 html_parts.append(html_text)
-            except ValueError as exc:
+            except (ValueError, UnicodeDecodeError) as exc:
+                # Strict error handling - raise instead of falling back
                 raise ValueError(f"Main HTML encoding error in {path.name}: {exc}") from exc
     return html_parts, resources
 

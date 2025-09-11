@@ -238,7 +238,7 @@ def test_chatgpt_compatibility():
         # Verify specific content - be resilient to test environment issues
         assert "help me with Python" in content, "Expected user message not found"  # nosec
         assert "happy to help" in content, "Expected assistant response not found"  # nosec
-        
+
         # Only check for the later content if we have a reasonable amount of content
         # This handles test execution environment differences that may cause truncation
         if len(content) > 200:
@@ -256,7 +256,7 @@ if __name__ == "__main__":
         # Simple fallback test runner
         import sys
         print("pytest not available, running tests directly...")
-        
+
         tests = [
             test_microsoft_copilot_mhtml_e2e,
             test_microsoft_copilot_html_e2e,
@@ -264,10 +264,10 @@ if __name__ == "__main__":
             test_no_warnings_or_errors,
             test_chatgpt_compatibility,
         ]
-        
+
         passed = 0
         failed = 0
-        
+
         for test_func in tests:
             try:
                 print(f"\nRunning {test_func.__name__}...")
@@ -277,6 +277,6 @@ if __name__ == "__main__":
             except Exception as e:
                 print(f"❌ FAILED: {test_func.__name__}: {e}")
                 failed += 1
-        
+
         print(f"\nSummary: {passed} passed, {failed} failed")
         sys.exit(1 if failed > 0 else 0)

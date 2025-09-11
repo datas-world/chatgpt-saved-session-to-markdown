@@ -7,6 +7,7 @@
 
 import subprocess
 import tempfile
+import time
 import traceback
 from pathlib import Path
 
@@ -310,12 +311,11 @@ def test_chatgpt_compatibility():
         print(f"✓ Created output file: {output_files[0].name}")
 
         # Ensure file is fully written before reading
-        import time
         time.sleep(0.1)
-        
+
         # Read the output with retry logic for robustness
         content = output_files[0].read_text(encoding="utf-8")
-        
+
         # If content seems incomplete (less than expected), retry a few times
         retry_count = 0
         while len(content) < 200 and retry_count < 3:  # Expected content should be ~273 chars
@@ -331,20 +331,20 @@ def test_chatgpt_compatibility():
         # Verify specific content - be resilient to partial output issues
         checks = [
             ("help me with Python", "Expected user message not found"),
-            ("happy to help", "Expected assistant response not found"), 
+            ("happy to help", "Expected assistant response not found"),
         ]
-        
+
         # Only check for the later content if we have a reasonable amount of content
         if len(content) > 200:
             checks.extend([
                 ("create a list", "Expected user question not found"),
                 ("square brackets", "Expected assistant answer not found")
             ])
-        
+
         for check_text, error_msg in checks:
             found = check_text in content
             assert found, f"{error_msg} - searched for '{check_text}'"  # nosec
-            
+
         print("✓ Found expected ChatGPT conversation content")
 
         # Display sample of the generated content
