@@ -104,7 +104,7 @@ def test_microsoft_copilot_mhtml_e2e():
         cmd = ["chatgpt-saved-session-to-markdown", "run", "-o", str(temp_path), str(mhtml_file)]
         print(f"Running command: {' '.join(cmd)}")
 
-        result = subprocess.run(cmd, check=False, capture_output=True, text=True)
+        result = subprocess.run(cmd, check=False, capture_output=True, text=True, shell=False)
 
         # Check exit code
         assert (  # nosec
@@ -143,6 +143,7 @@ def test_microsoft_copilot_html_e2e():
             check=False,
             capture_output=True,
             text=True,
+            shell=False,
         )
 
         # Check exit code
@@ -185,6 +186,7 @@ def test_microsoft_copilot_pdf_e2e():
             check=False,
             capture_output=True,
             text=True,
+            shell=False,
         )
 
         # Check exit code
@@ -227,6 +229,7 @@ def test_no_warnings_or_errors():
             check=False,
             capture_output=True,
             text=True,
+            shell=False,
         )
 
         # Should succeed without errors
@@ -286,6 +289,7 @@ def test_chatgpt_compatibility():
             check=False,
             capture_output=True,
             text=True,
+            shell=False,
         )
 
         # Check exit code
