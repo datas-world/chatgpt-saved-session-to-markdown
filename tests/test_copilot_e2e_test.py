@@ -189,14 +189,14 @@ def test_chatgpt_compatibility():
 </div>
 <div data-message-author-role="assistant">
     <div class="message-content">Of course! I'd be happy to help you with Python. """ \
-        """What do you need assistance with?</div>
+    """What do you need assistance with?</div>
 </div>
 <div data-message-author-role="user">
     <div class="message-content">How do I create a list?</div>
 </div>
 <div data-message-author-role="assistant">
     <div class="message-content">You can create a list in Python using square brackets: """ \
-        """<code>my_list = [1, 2, 3]</code></div>
+    """<code>my_list = [1, 2, 3]</code></div>
 </div>
 </body>
 </html>"""
