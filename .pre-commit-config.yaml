@@ -50,7 +50,8 @@ repos:
     rev: v2.4.1
     hooks:
       - id: codespell
-        args: ["--ignore-words-list=crate,fo,sie", "--skip=tests/data"]
+        args: ["--ignore-words-list=crate,fo,sie"]
+        exclude: '^tests/data/'
 
   - repo: https://github.com/PyCQA/bandit
     rev: 1.8.6
