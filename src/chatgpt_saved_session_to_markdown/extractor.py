@@ -148,7 +148,7 @@ def _get_system_encoding() -> str:
     """
     try:
         encoding = locale.getpreferredencoding(False)
-        if encoding and encoding.lower() not in ('ascii', 'us-ascii'):
+        if encoding:
             return encoding
     except (AttributeError, LookupError):
         pass
