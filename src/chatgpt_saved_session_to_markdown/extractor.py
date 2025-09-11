@@ -77,9 +77,11 @@ def _warn_better_format_guess_for_pdf(pages_extracted: int, text_len: int) -> No
 
 
 def _decode_content_transfer_encoding(payload: bytes, encoding: str | None) -> bytes:
-    """Decode Content-Transfer-Encoding according to RFC 1341 with priority order.
+    """Decode Content-Transfer-Encoding values as defined in RFC 1341.
     
-    Priority order per RFC 1341: quoted-printable > base64 > binary > 8bit > 7bit
+    This implementation checks for encodings in the following order:
+    quoted-printable > base64 > binary > 8bit > 7bit.
+    (Note: This priority order is an implementation choice, not specified by RFC 1341.)
     Uses COTS packages (standard library base64, quopri) with proper validation.
     
     Args:
