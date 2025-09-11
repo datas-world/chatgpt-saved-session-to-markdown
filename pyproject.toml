@@ -92,6 +92,9 @@ warn_unreachable = true
 strict_equality = true
 plugins = [  ]
 
+[tool.bandit.assert_used]
+skips = [ 'tests/*_tests.py', 'tests/test_*.py' ]
+
 [tool.interrogate]
 fail-under = 100
 verbose = 1
