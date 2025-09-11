@@ -127,6 +127,44 @@ def _decode_content_transfer_encoding(payload: bytes, encoding: str | None) -> b
         return payload
 
 
+def _extract_and_decode_payload(message: Message, log_context: str) -> bytes:
+    """Extract and decode payload from email message with proper charset handling.
+    
+    Args:
+        message: Email message object
+        log_context: Context string for error logging
+        
+    Returns:
+        Decoded payload bytes
+    """
+    # Get raw payload and Content-Transfer-Encoding
+    raw_payload = message.get_payload(decode=False)
+    if isinstance(raw_payload, str):
+        # Use message's charset with robust fallback
+        charset = message.get_content_charset() or "utf-8"
+        try:
+            raw_payload = raw_payload.encode(charset)
+        except (UnicodeEncodeError, LookupError):
+            # Fallback to utf-8 if charset is invalid or encoding fails
+            try:
+                raw_payload = raw_payload.encode("utf-8")
+            except UnicodeEncodeError:
+                # Last resort: encode with error replacement
+                raw_payload = raw_payload.encode("utf-8", errors="replace")
+    elif raw_payload is None:
+        raw_payload = b""
+    
+    encoding = message.get("Content-Transfer-Encoding")
+    
+    # Use robust Content-Transfer-Encoding decoder
+    try:
+        return _decode_content_transfer_encoding(raw_payload, encoding)
+    except RuntimeError as exc:
+        LOGGER.error("Content-Transfer-Encoding decode error in %s: %s", log_context, exc)
+        # Fallback to raw payload on decode error
+        return raw_payload
+
+
 # --------------------------------------------------------------------------- #
 # MHTML parsing & in-memory resource embedding                                 #
 # --------------------------------------------------------------------------- #
@@ -144,27 +182,15 @@ def _build_resource_map_from_mhtml(path: Path) -> tuple[list[str], dict[str, tup
                 continue
             ctype = (sub.get_content_type() or "").lower()
             
-            # Get raw payload and Content-Transfer-Encoding
-            raw_payload = sub.get_payload(decode=False)
-            if isinstance(raw_payload, str):
-                raw_payload = raw_payload.encode('utf-8')
-            elif raw_payload is None:
-                raw_payload = b""
-            
-            encoding = sub.get("Content-Transfer-Encoding")
-            
-            # Use robust Content-Transfer-Encoding decoder
-            try:
-                payload = _decode_content_transfer_encoding(raw_payload, encoding)
-            except RuntimeError as exc:
-                LOGGER.error("Content-Transfer-Encoding decode error in %s: %s", path.name, exc)
-                # Fallback to raw payload on decode error
-                payload = raw_payload
+            # Extract and decode payload using helper function
+            payload = _extract_and_decode_payload(sub, path.name)
             
             if ctype.startswith("text/html"):
+                charset = sub.get_content_charset() or "utf-8"
                 try:
-                    text = payload.decode(sub.get_content_charset() or "utf-8", errors="replace")
-                except Exception:
+                    text = payload.decode(charset, errors="replace")
+                except (UnicodeDecodeError, LookupError):
+                    # Fallback to utf-8 if charset is invalid
                     text = payload.decode("utf-8", errors="replace")
                 html_parts.append(text)
             else:
@@ -176,26 +202,17 @@ def _build_resource_map_from_mhtml(path: Path) -> tuple[list[str], dict[str, tup
                     resources[loc] = (ctype, payload)
     else:
         if (msg.get_content_type() or "").lower().startswith("text/html"):
-            # Get raw payload and Content-Transfer-Encoding
-            raw_payload = msg.get_payload(decode=False)
-            if isinstance(raw_payload, str):
-                raw_payload = raw_payload.encode('utf-8')
-            elif raw_payload is None:
-                raw_payload = b""
+            # Extract and decode payload using helper function
+            payload = _extract_and_decode_payload(msg, path.name)
             
-            encoding = msg.get("Content-Transfer-Encoding")
-            
-            # Use robust Content-Transfer-Encoding decoder
+            charset = msg.get_content_charset() or "utf-8"
             try:
-                payload = _decode_content_transfer_encoding(raw_payload, encoding)
-            except RuntimeError as exc:
-                LOGGER.error("Content-Transfer-Encoding decode error in %s: %s", path.name, exc)
-                # Fallback to raw payload on decode error
-                payload = raw_payload
+                html_text = payload.decode(charset, errors="replace")
+            except (UnicodeDecodeError, LookupError):
+                # Fallback to utf-8 if charset is invalid
+                html_text = payload.decode("utf-8", errors="replace")
             
-            html_parts.append(
-                payload.decode(msg.get_content_charset() or "utf-8", errors="replace")
-            )
+            html_parts.append(html_text)
     return html_parts, resources
 
 
