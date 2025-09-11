@@ -48,11 +48,14 @@ jobs:
               console.log(`Found ${validTags.length} valid tags: ${validTags.join(', ')}`);
               
               // Get all releases that match major.minor.patch format
-              const { data: releases } = await github.rest.repos.listReleases({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                per_page: 100
-              });
+              const releases = await github.paginate(
+                github.rest.repos.listReleases,
+                {
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  per_page: 100
+                }
+              );
               const validReleases = releases
                 .map(release => release.tag_name)
                 .filter(tag => /^\d+\.\d+\.\d+$/.test(tag));
