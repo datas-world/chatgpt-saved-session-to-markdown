@@ -28,10 +28,10 @@ GitHub Copilot **SHALL** not consider any development task completed until all [
 The following actions are **STRICTLY FORBIDDEN** without explicit approval from a project maintainer:
 
 1. **Disabling or weakening pre-commit checks** - All quality gates must remain active
-2. **Modifying test configurations** to reduce coverage or skip tests
-3. **Bypassing security checks** or ignoring security warnings
-4. **Removing or weakening linting rules** without documented justification
-5. **Altering files in `tests/data`** - Test data files (except `*.license` files) must not be modified to suppress warnings or errors
+1. **Modifying test configurations** to reduce coverage or skip tests
+1. **Bypassing security checks** or ignoring security warnings
+1. **Removing or weakening linting rules** without documented justification
+1. **Altering files in `tests/data`** - Test data files (except `*.license` files) must not be modified to suppress warnings or errors
 
 ## Error and Warning Management
 
@@ -40,11 +40,12 @@ The following actions are **STRICTLY FORBIDDEN** without explicit approval from 
 When addressing warnings or errors, proposals for suppression **SHALL** occur at the lowest possible level:
 
 1. **Inline suppression** - Use specific `# noqa` comments with error codes when justified
-2. **Function/class level** - Apply suppressions to the smallest possible scope
-3. **File level** - Only when the entire file requires the exception
-4. **Global level** - Never without maintainer approval
+1. **Function/class level** - Apply suppressions to the smallest possible scope
+1. **File level** - Only when the entire file requires the exception
+1. **Global level** - Never without maintainer approval
 
 Example of proper inline suppression:
+
 ```python
 # This is acceptable for legitimate cases
 result = subprocess.run(command, shell=True)  # noqa: S602 # Intentional shell use for user input
@@ -55,13 +56,14 @@ result = subprocess.run(command, shell=True)  # noqa: S602 # Intentional shell u
 When tests fail, a **deep root-cause analysis** is required following this process:
 
 1. **Determine failure type**:
+
    - Implementation error (code bug)
    - Test error (incorrect test assumptions)
    - Environment issue (dependency, configuration)
 
-2. **Document findings** in commit messages or pull request descriptions
+1. **Document findings** in commit messages or pull request descriptions
 
-3. **Escalate decision** - The final determination of whether to fix implementation or modify tests **SHALL** be made by project maintainers
+1. **Escalate decision** - The final determination of whether to fix implementation or modify tests **SHALL** be made by project maintainers
 
 ## Standards and References
 
@@ -92,28 +94,28 @@ All implemented solutions **SHALL** reference applicable standards with deep hyp
 Custom implementations are only acceptable when:
 
 1. **No suitable off-the-shelf solution exists** for the specific use case
-2. **Performance requirements** cannot be met by existing solutions
-3. **Licensing constraints** prevent use of available alternatives
-4. **Maintainer approval** has been explicitly granted
+1. **Performance requirements** cannot be met by existing solutions
+1. **Licensing constraints** prevent use of available alternatives
+1. **Maintainer approval** has been explicitly granted
 
 ## Compliance Verification
 
 Before marking any task as complete:
 
 1. **Run full pre-commit suite**: `pre-commit run --all-files`
-2. **Execute test suite**: `python -m pytest`
-3. **Verify documentation**: Ensure all public APIs are documented
-4. **Check licensing**: Confirm SPDX headers are present and correct
+1. **Execute test suite**: `python -m pytest`
+1. **Verify documentation**: Ensure all public APIs are documented
+1. **Check licensing**: Confirm SPDX headers are present and correct
 
 ## Escalation Process
 
 When in doubt about any of these requirements:
 
 1. **Document the concern** in detail
-2. **Propose alternative approaches** with justification
-3. **Request maintainer review** before proceeding
-4. **Wait for explicit approval** before implementing controversial changes
+1. **Propose alternative approaches** with justification
+1. **Request maintainer review** before proceeding
+1. **Wait for explicit approval** before implementing controversial changes
 
----
+______________________________________________________________________
 
 **Note**: These instructions are binding for all GitHub Copilot interactions with this codebase. Non-compliance may result in rejected contributions and requests for complete rework.
