@@ -528,7 +528,6 @@ def _extract_copilot_messages(chat_container: Tag) -> list[tuple[str, str]] | No
 def _extract_dialogue_title(html: str) -> str:
     """Extract a title for the dialogue from HTML content."""
     soup = BeautifulSoup(html, "lxml")
-    
     # Try to extract from HTML title tag
     title_tag = soup.find("title")
     if title_tag and title_tag.get_text(strip=True):
