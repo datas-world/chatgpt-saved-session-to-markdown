@@ -173,7 +173,7 @@ jobs:
                     owner: context.repo.owner,
                     repo: context.repo.repo,
                     title: nextVersion,
-                    description: `Release milestone for version ${nextVersion}`
+                    description: `Release planning milestone for version ${nextVersion}`
                   });
                   allCreated.push(nextVersion);
                   console.log(`Created milestone: ${nextVersion}`);
