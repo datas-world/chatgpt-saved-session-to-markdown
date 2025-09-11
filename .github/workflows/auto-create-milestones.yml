@@ -138,7 +138,7 @@ jobs:
               // Parse major.minor.patch version
               const match = version.match(/^(\d+)\.(\d+)\.(\d+)$/);
               if (!match) {
-                console.error(`Failed to parse major.minor.patch version: ${version} - skipping`);
+                console.error(`Failed to parse major.minor.patch version: ${version} - skipping.`);
                 continue;
               }
               
