@@ -16,8 +16,7 @@ import os
 import quopri
 import re
 from collections.abc import Sequence
-from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
-from concurrent.futures import as_completed
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 from email import policy
 from email.parser import BytesParser
 from pathlib import Path
@@ -91,22 +90,22 @@ def _warn_better_format_guess_for_pdf(pages_extracted: int, text_len: int, path:
 
 def _decode_content_transfer_encoding(payload: bytes, encoding: str | None) -> bytes:
     """Decode Content-Transfer-Encoding values as defined in RFC 1341.
-    
+
     See: https://tools.ietf.org/html/rfc1341#section-5
-    
+
     This implementation checks for encodings in the following order:
     quoted-printable > base64 > binary > 8bit > 7bit.
     (Note: This priority order is an implementation choice, not specified by RFC 1341.
      See: https://tools.ietf.org/html/rfc1341#section-5.1)
     Uses COTS packages (standard library base64, quopri) with proper validation.
-    
+
     Args:
         payload: Raw payload bytes
         encoding: Content-Transfer-Encoding value (case-insensitive)
-        
+
     Returns:
         Decoded payload bytes
-        
+
     Raises:
         RuntimeError: If decoding fails for supported encodings
     """
@@ -114,9 +113,9 @@ def _decode_content_transfer_encoding(payload: bytes, encoding: str | None) -> b
         # Default to 7bit if no encoding specified (RFC 1341 default)
         # See: https://tools.ietf.org/html/rfc1341#section-5.1
         return payload
-    
+
     encoding_lower = encoding.strip().lower()
-    
+
     # Handle priority order - quoted-printable has highest priority
     if encoding_lower == "quoted-printable":
         try:
@@ -124,7 +123,7 @@ def _decode_content_transfer_encoding(payload: bytes, encoding: str | None) -> b
             return quopri.decodestring(payload)
         except Exception as exc:
             raise RuntimeError(f"Failed to decode quoted-printable content: {exc}") from exc
-    
+
     # base64 has second priority
     elif encoding_lower == "base64":
         try:
@@ -132,23 +131,25 @@ def _decode_content_transfer_encoding(payload: bytes, encoding: str | None) -> b
             return base64.b64decode(payload, validate=True)
         except Exception as exc:
             raise RuntimeError(f"Failed to decode base64 content: {exc}") from exc
-    
+
     # binary, 8bit, 7bit have lower priorities but no decoding needed
     elif encoding_lower in ("binary", "8bit", "7bit"):
         # No decoding needed for these encodings
         return payload
-    
+
     else:
         # Unknown encoding - raise error for strict validation
-        raise RuntimeError(f"Unknown Content-Transfer-Encoding '{encoding}'. Strict validation requires known encoding.")
+        raise RuntimeError(
+            f"Unknown Content-Transfer-Encoding '{encoding}'. Strict validation requires known encoding."
+        )
 
 
 def _get_system_encoding() -> str:
     """Get the system's preferred encoding for text files.
-    
+
     Returns the locale encoding, falling back to US-ASCII per RFC 2822/5322 standards
     if locale detection fails.
-    
+
     See: https://tools.ietf.org/html/rfc2822#section-2.2
          https://tools.ietf.org/html/rfc5322#section-2.2
     """
@@ -159,25 +160,25 @@ def _get_system_encoding() -> str:
     except (AttributeError, LookupError):
         pass
     # Fallback to US-ASCII per RFC standards
-    return 'us-ascii'
+    return "us-ascii"
 
 
 def _get_email_charset_or_error(message: Message, context: str) -> str:
     """Get charset from email message or raise error if not available.
-    
+
     Per RFC 2822/5322, if no charset is specified for text/* content,
     US-ASCII should be assumed.
-    
+
     See: https://tools.ietf.org/html/rfc2822#section-2.2
          https://tools.ietf.org/html/rfc5322#section-2.2
-    
+
     Args:
         message: Email message object
         context: Context string for error messages
-        
+
     Returns:
         Charset string
-        
+
     Raises:
         ValueError: If charset cannot be determined or is invalid
     """
@@ -189,45 +190,49 @@ def _get_email_charset_or_error(message: Message, context: str) -> str:
             return charset
         except LookupError as exc:
             raise ValueError(f"Invalid charset '{charset}' in {context}") from exc
-    
+
     # Per RFC standards, default to US-ASCII for text content if no charset specified
     content_type = message.get_content_type() or ""
     if content_type.startswith("text/"):
         return "us-ascii"
-    
-    raise ValueError(f"No charset specified and content type '{content_type}' in {context} - cannot determine encoding")
+
+    raise ValueError(
+        f"No charset specified and content type '{content_type}' in {context} - cannot determine encoding"
+    )
 
 
 def _extract_and_decode_payload(message: Message, log_context: str) -> bytes:
     """Extract and decode payload from email message with proper charset handling.
-    
+
     Uses Message.get_payload(decode=True) to automatically handle Content-Transfer-Encoding
     decoding as recommended by the email library API.
-    
+
     Args:
         message: Email message object
         log_context: Context string for error logging
-        
+
     Returns:
         Decoded payload bytes
-        
+
     Raises:
         ValueError: If payload cannot be extracted or decoded
     """
     try:
         # Use the email library's built-in Content-Transfer-Encoding decoding
         payload = message.get_payload(decode=True)
-        
+
         if payload is None:
             return b""
-        
+
         # get_payload(decode=True) should return bytes for binary data
         if isinstance(payload, bytes):
             return payload
-        
+
         # If we get a string, something went wrong - this shouldn't happen with decode=True
-        raise ValueError(f"Unexpected string payload from get_payload(decode=True) in {log_context}")
-        
+        raise ValueError(
+            f"Unexpected string payload from get_payload(decode=True) in {log_context}"
+        )
+
     except Exception as exc:
         # Handle any decoding errors from the email library
         raise ValueError(f"Failed to decode payload in {log_context}: {exc}") from exc
@@ -252,10 +257,10 @@ def _build_resource_map_from_mhtml(
             if not hasattr(sub, "get_content_type"):
                 continue
             ctype = (sub.get_content_type() or "").lower()
-            
+
             # Extract and decode payload using helper function
             payload = _extract_and_decode_payload(sub, path.name)
-            
+
             if ctype.startswith("text/html"):
                 # Get charset with strict error handling - no fallbacks
                 try:
@@ -276,7 +281,7 @@ def _build_resource_map_from_mhtml(
         if (msg.get_content_type() or "").lower().startswith("text/html"):
             # Extract and decode payload using helper function
             payload = _extract_and_decode_payload(msg, path.name)
-            
+
             # Get charset with strict error handling - no fallbacks
             try:
                 charset = _get_email_charset_or_error(msg, f"{path.name} main HTML")
@@ -587,7 +592,9 @@ def _process_single(path: Path, outdir: Path | None) -> list[Path]:
                 out.write_text(md, encoding=system_encoding)
             except UnicodeEncodeError as exc:
                 # If system encoding fails, raise error instead of falling back
-                raise RuntimeError(f"Cannot write output file {out} with system encoding {system_encoding}") from exc
+                raise RuntimeError(
+                    f"Cannot write output file {out} with system encoding {system_encoding}"
+                ) from exc
             produced.append(out)
 
     elif suffix in (".html", ".htm"):
@@ -595,9 +602,13 @@ def _process_single(path: Path, outdir: Path | None) -> list[Path]:
         # Use system encoding for reading HTML files
         system_encoding = _get_system_encoding()
         try:
-            html = path.read_text(encoding=system_encoding)  # Strict reading - raise on decode errors
+            html = path.read_text(
+                encoding=system_encoding
+            )  # Strict reading - raise on decode errors
         except UnicodeDecodeError as exc:
-            raise ValueError(f"Cannot read HTML file {path} with system encoding {system_encoding}: {exc}") from exc
+            raise ValueError(
+                f"Cannot read HTML file {path} with system encoding {system_encoding}: {exc}"
+            ) from exc
         _warn_better_format_guess_for_html(html, path)
         md = dialogue_html_to_md(html, resources=None, log_prefix=f"[{path.name}] ")
         if not md.strip():
@@ -607,7 +618,9 @@ def _process_single(path: Path, outdir: Path | None) -> list[Path]:
         try:
             out.write_text(md, encoding=system_encoding)
         except UnicodeEncodeError as exc:
-            raise RuntimeError(f"Cannot write output file {out} with system encoding {system_encoding}") from exc
+            raise RuntimeError(
+                f"Cannot write output file {out} with system encoding {system_encoding}"
+            ) from exc
         produced.append(out)
 
     elif suffix == ".pdf":
@@ -622,7 +635,9 @@ def _process_single(path: Path, outdir: Path | None) -> list[Path]:
         try:
             out.write_text(text.strip() + "\n", encoding=system_encoding)
         except UnicodeEncodeError as exc:
-            raise RuntimeError(f"Cannot write output file {out} with system encoding {system_encoding}") from exc
+            raise RuntimeError(
+                f"Cannot write output file {out} with system encoding {system_encoding}"
+            ) from exc
         produced.append(out)
 
     else:
