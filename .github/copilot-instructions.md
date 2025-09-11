@@ -31,6 +31,7 @@ The following actions are **STRICTLY FORBIDDEN** without explicit approval from 
 2. **Modifying test configurations** to reduce coverage or skip tests
 3. **Bypassing security checks** or ignoring security warnings
 4. **Removing or weakening linting rules** without documented justification
+5. **Altering files in `tests/data`** - Test data files (except `*.license` files) must not be modified to suppress warnings or errors
 
 ## Error and Warning Management
 
@@ -72,9 +73,9 @@ All implemented solutions **SHALL** reference applicable standards with deep hyp
 - [SPDX License Identifier Guidelines](https://spdx.github.io/spdx-spec/v2.3/SPDX-license-identifier/)
 - [GNU General Public License v3.0](https://www.gnu.org/licenses/gpl-3.0.en.html)
 
-## Commercial Off-the-Shelf (COTS) Preference
+## Off-the-Shelf (COTS) Preference
 
-**STRICTLY prefer** established, well-maintained commercial off-the-shelf software over custom implementations:
+**STRICTLY prefer** established, well-maintained off-the-shelf software over custom implementations:
 
 ### Preferred Tools and Libraries
 
@@ -90,7 +91,7 @@ All implemented solutions **SHALL** reference applicable standards with deep hyp
 
 Custom implementations are only acceptable when:
 
-1. **No suitable COTS solution exists** for the specific use case
+1. **No suitable off-the-shelf solution exists** for the specific use case
 2. **Performance requirements** cannot be met by existing solutions
 3. **Licensing constraints** prevent use of available alternatives
 4. **Maintainer approval** has been explicitly granted
