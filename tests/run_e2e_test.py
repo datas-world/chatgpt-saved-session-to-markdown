@@ -270,13 +270,15 @@ def test_chatgpt_compatibility():
     <div class="message-content">Hello, can you help me with Python?</div>
 </div>
 <div data-message-author-role="assistant">
-    <div class="message-content">Of course! I'd be happy to help you with Python. What do you need assistance with?</div>
+    <div class="message-content">Of course! I'd be happy to help you with Python. """
+        """What do you need assistance with?</div>
 </div>
 <div data-message-author-role="user">
     <div class="message-content">How do I create a list?</div>
 </div>
 <div data-message-author-role="assistant">
-    <div class="message-content">You can create a list in Python using square brackets: <code>my_list = [1, 2, 3]</code></div>
+    <div class="message-content">You can create a list in Python using square brackets: """
+        """<code>my_list = [1, 2, 3]</code></div>
 </div>
 </body>
 </html>"""
@@ -319,7 +321,7 @@ def test_chatgpt_compatibility():
             ("help me with Python", "Expected user message not found"),
             ("happy to help", "Expected assistant response not found"),
         ]
-        
+
         optional_checks = [
             ("create a list", "Expected user question not found"),
             ("square brackets", "Expected assistant answer not found"),
@@ -334,14 +336,17 @@ def test_chatgpt_compatibility():
                 print(f"Content ({len(content)} chars):")
                 print(repr(content))
             assert found, f"{error_msg} - searched for '{check_text}'"  # nosec
-            
+
         # Check optional content - warn if missing but don't fail
-        for check_text, error_msg in optional_checks:
+        for check_text, _error_msg in optional_checks:
             found = check_text in content
             if found:
                 print(f"✓ Found optional content: '{check_text}'")
             else:
-                print(f"⚠ Missing optional content: '{check_text}' - this may indicate incomplete processing")
+                print(
+                    f"⚠ Missing optional content: '{check_text}' - "
+                    "this may indicate incomplete processing"
+                )
 
         print("✓ Found expected ChatGPT conversation content")
 

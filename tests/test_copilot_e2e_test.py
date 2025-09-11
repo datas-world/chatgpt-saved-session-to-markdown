@@ -188,13 +188,15 @@ def test_chatgpt_compatibility():
     <div class="message-content">Hello, can you help me with Python?</div>
 </div>
 <div data-message-author-role="assistant">
-    <div class="message-content">Of course! I'd be happy to help you with Python. What do you need assistance with?</div>
+    <div class="message-content">Of course! I'd be happy to help you with Python. """
+        """What do you need assistance with?</div>
 </div>
 <div data-message-author-role="user">
     <div class="message-content">How do I create a list?</div>
 </div>
 <div data-message-author-role="assistant">
-    <div class="message-content">You can create a list in Python using square brackets: <code>my_list = [1, 2, 3]</code></div>
+    <div class="message-content">You can create a list in Python using square brackets: """
+        """<code>my_list = [1, 2, 3]</code></div>
 </div>
 </body>
 </html>"""
@@ -228,7 +230,7 @@ def test_chatgpt_compatibility():
         assert "## User" in content, "User messages not found in output"  # nosec
         assert "## Assistant" in content, "Assistant messages not found in output"  # nosec
 
-        # Verify specific content 
+        # Verify specific content
         assert "help me with Python" in content, "Expected user message not found"  # nosec
         assert "happy to help" in content, "Expected assistant response not found"  # nosec
         assert "create a list" in content, "Expected user question not found"  # nosec

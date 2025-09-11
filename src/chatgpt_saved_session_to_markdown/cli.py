@@ -26,57 +26,46 @@ def _setup_logging(verbose: int) -> None:
 
 
 def main() -> None:
-    """Main CLI entry point."""
+    """Run the CLI entry point."""
     parser = argparse.ArgumentParser(
         description="Convert ChatGPT HTML/MHTML/PDF exports to Markdown "
         "(embeds inline resources, warns on better formats)."
     )
-    
+
     parser.add_argument(
-        "inputs",
-        nargs="*",
-        help="Inputs (.html, .htm, .mhtml, .mht, .pdf). Shell globs allowed."
+        "inputs", nargs="*", help="Inputs (.html, .htm, .mhtml, .mht, .pdf). Shell globs allowed."
+    )
+    parser.add_argument("--outdir", "-o", type=Path, help="Directory for output .md files.")
+    parser.add_argument(
+        "--jobs", "-j", type=int, help="Parallel workers (default: CPU count/auto)."
     )
     parser.add_argument(
-        "--outdir", "-o",
-        type=Path,
-        help="Directory for output .md files."
-    )
-    parser.add_argument(
-        "--jobs", "-j",
-        type=int,
-        help="Parallel workers (default: CPU count/auto)."
-    )
-    parser.add_argument(
-        "-v", "--verbose",
+        "-v",
+        "--verbose",
         action="count",
         default=0,
-        help="Increase verbosity (-v: INFO, -vv: DEBUG)."
+        help="Increase verbosity (-v: INFO, -vv: DEBUG).",
     )
-    parser.add_argument(
-        "--version",
-        action="version",
-        version=__version__
-    )
-    
+    parser.add_argument("--version", action="version", version=__version__)
+
     args = parser.parse_args()
-    
+
     _setup_logging(args.verbose)
-    
+
     # If no files are given, exit successfully
     if not args.inputs:
         sys.exit(0)
-    
+
     try:
         produced = process_many(args.inputs, args.outdir, (args.jobs or 0))
     except Exception as exc:  # surface clear non-zero on any batch failure
         logging.error("%s", exc)
         sys.exit(1)
-    
+
     if not produced:
         logging.error("No outputs were produced.")
         sys.exit(1)
-    
+
     for p in produced:
         print(str(p))
 
