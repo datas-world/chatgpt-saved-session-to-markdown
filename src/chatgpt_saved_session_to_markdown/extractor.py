@@ -320,12 +320,13 @@ def try_extract_messages_with_roles(html: str) -> list[tuple[str, str]] | None:
     return out or None
 
 
-def _extract_copilot_messages(chat_container) -> list[tuple[str, str]] | None:
+def _extract_copilot_messages(chat_container: Tag) -> list[tuple[str, str]] | None:
     """Extract conversation messages from Microsoft Copilot chat container."""
     # Get the full text content and parse it for conversation patterns
     full_text = chat_container.get_text()
 
-    # Microsoft Copilot pattern: "Sie sagten" followed by content, then "Copilot sagt[e]" followed by content
+    # Microsoft Copilot pattern: "Sie sagten" followed by content,
+    # then "Copilot sagt[e]" followed by content
     messages = []
 
     # Split by "Sie sagten" to get conversation segments
@@ -338,7 +339,7 @@ def _extract_copilot_messages(chat_container) -> list[tuple[str, str]] | None:
         )
         if copilot_match:
             # Extract user message (everything before "Copilot sagt[e]")
-            user_split = re.split(r"Copilot sagt[e]?", segment, 1)
+            user_split = re.split(pattern=r"Copilot sagt[e]?", string=segment, maxsplit=1)
             if len(user_split) > 0:
                 user_content = user_split[0].strip()
                 if user_content and len(user_content) > 5:
@@ -485,7 +486,7 @@ def process_many(inputs: Sequence[str], outdir: Path | None, jobs: int) -> list[
     for p in files:
         stem = p.stem.lower()
         by_stem.setdefault(stem, []).append(p)
-    for stem, file_list in by_stem.items():
+    for _stem, file_list in by_stem.items():
         exts = {f.suffix.lower() for f in file_list}
         if any(e in exts for e in [".html", ".htm"]) and any(e in exts for e in [".mhtml", ".mht"]):
             paths_str = ", ".join(str(f) for f in file_list)
