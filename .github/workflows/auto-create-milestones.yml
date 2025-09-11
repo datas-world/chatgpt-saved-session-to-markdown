@@ -63,7 +63,7 @@ jobs:
               console.log(`All unique versions: ${allVersions.join(', ')}`);
               
               if (allVersions.length === 0) {
-                console.log('No valid major.minor.patch versions found in tags or releases - nothing to do');
+                console.log('No valid major.minor.patch versions found in tags or releases - nothing to do.');
                 core.setOutput('versions', JSON.stringify([]));
                 return;
               }
