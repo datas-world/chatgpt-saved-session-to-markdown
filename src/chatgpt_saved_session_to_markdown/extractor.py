@@ -133,9 +133,8 @@ def _decode_content_transfer_encoding(payload: bytes, encoding: str | None) -> b
         return payload
     
     else:
-        # Unknown encoding - log warning and return as-is per RFC fallback behavior
-        LOGGER.warning("Unknown Content-Transfer-Encoding '%s', treating as binary", encoding)
-        return payload
+        # Unknown encoding - raise error for strict validation
+        raise RuntimeError(f"Unknown Content-Transfer-Encoding '{encoding}'. Strict validation requires known encoding.")
 
 
 def _get_system_encoding() -> str:
