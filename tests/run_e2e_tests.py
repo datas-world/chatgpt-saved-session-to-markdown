@@ -29,6 +29,28 @@ def run_test(test_func, test_name):
         return False
 
 
+def validate_microsoft_copilot_content(content):
+    """Shared content validation for Microsoft Copilot files (MHTML, HTML, PDF)."""
+    # Verify conversation structure
+    assert "### User" in content, "User messages not found in output"
+    assert "### Assistant" in content, "Assistant messages not found in output"
+    print("✓ Found conversation structure (User/Assistant)")
+    
+    # Verify specific content from the test file
+    assert "Wie du magst, sei kreativ" in content, "Expected user message not found"
+    assert "kreativer Gruß" in content, "Expected assistant response not found"
+    print("✓ Found expected conversation content")
+    
+    # Verify no unexpected content
+    assert "Nachricht an Copilot" not in content, "UI elements leaked into conversation"
+    assert "Schnelle Antwort" not in content, "UI elements leaked into conversation"
+    print("✓ No UI elements leaked into conversation")
+    
+    # Display sample of the generated content
+    print(f"✓ Generated content preview ({len(content)} chars):")
+    print(content[:300] + "..." if len(content) > 300 else content)
+
+
 def test_microsoft_copilot_mhtml_e2e():
     """Test end-to-end processing of Microsoft Copilot MHTML file."""
     test_data_dir = Path(__file__).parent / "data"
@@ -61,24 +83,8 @@ def test_microsoft_copilot_mhtml_e2e():
         output_file = output_files[0]
         content = output_file.read_text(encoding="utf-8")
         
-        # Verify conversation structure
-        assert "### User" in content, "User messages not found in output"
-        assert "### Assistant" in content, "Assistant messages not found in output"
-        print("✓ Found conversation structure (User/Assistant)")
-        
-        # Verify specific content from the test file
-        assert "Wie du magst, sei kreativ" in content, "Expected user message not found"
-        assert "kreativer Gruß" in content, "Expected assistant response not found"
-        print("✓ Found expected conversation content")
-        
-        # Verify no unexpected content
-        assert "Nachricht an Copilot" not in content, "UI elements leaked into conversation"
-        assert "Schnelle Antwort" not in content, "UI elements leaked into conversation"
-        print("✓ No UI elements leaked into conversation")
-        
-        # Display sample of the generated content
-        print(f"✓ Generated content preview ({len(content)} chars):")
-        print(content[:300] + "..." if len(content) > 300 else content)
+        # Use shared content validation
+        validate_microsoft_copilot_content(content)
 
 
 def test_microsoft_copilot_html_e2e():
@@ -108,6 +114,52 @@ def test_microsoft_copilot_html_e2e():
         output_files = list(temp_path.glob("*.md"))
         assert len(output_files) > 0, "No markdown files were created"
         print(f"✓ Created {len(output_files)} output file(s)")
+        
+        # Read the output
+        output_file = output_files[0]
+        content = output_file.read_text(encoding="utf-8")
+        
+        # Use shared content validation
+        validate_microsoft_copilot_content(content)
+
+
+def test_microsoft_copilot_pdf_e2e():
+    """Test end-to-end processing of Microsoft Copilot PDF file."""
+    test_data_dir = Path(__file__).parent / "data"
+    pdf_file = test_data_dir / "Microsoft Copilot_ Ihr KI-Begleiter.pdf"
+    
+    # Only run if PDF file exists (optional test)
+    if not pdf_file.exists():
+        print(f"Skipping PDF test: {pdf_file} not found")
+        return
+    
+    print(f"Found test file: {pdf_file}")
+    
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_path = Path(temp_dir)
+        
+        # Run the CLI tool
+        result = subprocess.run(
+            ["chatgpt-saved-session-to-markdown", "run", "-o", str(temp_path), str(pdf_file)],
+            capture_output=True,
+            text=True
+        )
+        
+        # Check exit code
+        assert result.returncode == 0, f"CLI failed with exit code {result.returncode}:\nstdout: {result.stdout}\nstderr: {result.stderr}"
+        print("✓ CLI executed successfully")
+        
+        # Check that output file was created
+        output_files = list(temp_path.glob("*.md"))
+        assert len(output_files) > 0, "No markdown files were created"
+        print(f"✓ Created {len(output_files)} output file(s)")
+        
+        # Read the output
+        output_file = output_files[0]
+        content = output_file.read_text(encoding="utf-8")
+        
+        # Use shared content validation
+        validate_microsoft_copilot_content(content)
 
 
 def test_no_warnings_or_errors():
@@ -217,7 +269,8 @@ def main():
     
     tests = [
         (test_microsoft_copilot_mhtml_e2e, "Microsoft Copilot MHTML E2E"),
-        (test_microsoft_copilot_html_e2e, "Microsoft Copilot HTML E2E"), 
+        (test_microsoft_copilot_html_e2e, "Microsoft Copilot HTML E2E"),
+        (test_microsoft_copilot_pdf_e2e, "Microsoft Copilot PDF E2E"),
         (test_no_warnings_or_errors, "No Warnings or Errors"),
         (test_chatgpt_compatibility, "ChatGPT Compatibility"),
     ]
