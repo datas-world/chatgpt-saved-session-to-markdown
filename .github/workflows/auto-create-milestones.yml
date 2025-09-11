@@ -1,0 +1,200 @@
+# Copyright (C) 2025 Torsten Knodt and contributors
+# GNU General Public License
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+name: Auto-Create GitHub Milestones
+
+on:
+  # Manual trigger
+  workflow_dispatch:
+  # Tag creation
+  push:
+    tags:
+      # Major.minor.patch semver only (no pre-release or build metadata)
+      - '[0-9]+.[0-9]+.[0-9]+'
+  # Release/package upload
+  release:
+    types: [published]
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  create-milestones:
+    name: Create Next Version Milestones
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871 # v4.2.1
+        with:
+          fetch-depth: 0  # Fetch all history for tags.
+          
+      - name: Determine version to process
+        id: version
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v7.0.1
+        with:
+          script: |
+            if (context.eventName === 'workflow_dispatch') {
+              // For manual trigger, merge versions from both tags and releases
+              console.log('Manual trigger: discovering all versions from tags and releases.');
+              
+              // Get all tags that match major.minor.patch format
+              const { execSync } = require('child_process');
+              const tagOutput = execSync('git tag --list', { encoding: 'utf-8' }).trim();
+              const allTags = tagOutput ? tagOutput.split('\n') : [];
+              const validTags = allTags.filter(tag => /^\d+\.\d+\.\d+$/.test(tag));
+              console.log(`Found ${validTags.length} valid tags: ${validTags.join(', ')}`);
+              
+              // Get all releases that match major.minor.patch format
+              const releases = await github.paginate(
+                github.rest.repos.listReleases,
+                {
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  per_page: 100
+                }
+              );
+              const validReleases = releases
+                .map(release => release.tag_name)
+                .filter(tag => /^\d+\.\d+\.\d+$/.test(tag));
+              console.log(`Found ${validReleases.length} valid releases: ${validReleases.join(', ')}`);
+              
+              // Merge and deduplicate all versions
+              const allVersions = [...new Set([...validTags, ...validReleases])];
+              console.log(`All unique versions: ${allVersions.join(', ')}`);
+              
+              if (allVersions.length === 0) {
+                console.log('No valid major.minor.patch versions found in tags or releases - nothing to do.');
+                core.setOutput('versions', JSON.stringify([]));
+                return;
+              }
+              
+              // Process all versions (not just the latest)
+              console.log(`Processing all ${allVersions.length} versions for milestone creation.`);
+              core.setOutput('versions', JSON.stringify(allVersions));
+              
+            } else if (context.eventName === 'push') {
+              const version = context.ref.replace('refs/tags/', '');
+              console.log(`Tag push trigger: ${version}`);
+              
+              // Validate major.minor.patch format only
+              if (!/^\d+\.\d+\.\d+$/.test(version)) {
+                core.setFailed(`Invalid major.minor.patch version format: ${version}`);
+                return;
+              }
+              
+              core.setOutput('versions', JSON.stringify([version]));
+              
+            } else if (context.eventName === 'release') {
+              const version = context.payload.release.tag_name;
+              console.log(`Release trigger: ${version}`);
+              
+              // Validate major.minor.patch format only
+              if (!/^\d+\.\d+\.\d+$/.test(version)) {
+                core.setFailed(`Invalid major.minor.patch version format: ${version}`);
+                return;
+              }
+              
+              core.setOutput('versions', JSON.stringify([version]));
+              
+            } else {
+              core.setFailed(`Unexpected trigger event: ${context.eventName}`);
+            }
+
+      - name: Calculate next versions and create milestones
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v7.0.1
+        with:
+          script: |
+            const versionsJson = '${{ steps.version.outputs.versions }}';
+            if (!versionsJson) {
+              console.log('No versions to process - exiting gracefully.');
+              return;
+            }
+            
+            const versions = JSON.parse(versionsJson);
+            if (versions.length === 0) {
+              console.log('No versions to process - exiting gracefully.');
+              return;
+            }
+            
+            console.log(`Processing ${versions.length} versions: ${versions.join(', ')}`);
+            
+            // First, generate the set of nextVersions from all versions
+            const nextVersions = new Set();
+            
+            for (const version of versions) {
+              console.log(`Calculating next versions for: ${version}`);
+              
+              // Parse major.minor.patch version
+              const match = version.match(/^(\d+)\.(\d+)\.(\d+)$/);
+              if (!match) {
+                console.error(`Failed to parse major.minor.patch version: ${version} - skipping.`);
+                continue;
+              }
+              
+              const [, major, minor, patch] = match.map(Number);
+              
+              // Calculate next versions for this base version
+              const versionNextVersions = [
+                `${major + 1}.0.0`,  // Next major
+                `${major}.${minor + 1}.0`,  // Next minor
+                `${major}.${minor}.${patch + 1}`  // Next patch
+              ];
+              
+              console.log(`Next versions for ${version}: ${versionNextVersions.join(', ')}`);
+              
+              // Add to the set (automatically deduplicates)
+              versionNextVersions.forEach(v => nextVersions.add(v));
+            }
+            
+            const uniqueNextVersions = Array.from(nextVersions).sort();
+            console.log(`\nUnique next versions to process: ${uniqueNextVersions.join(', ')}`);
+            
+            // Get existing milestones
+            const { data: existingMilestones } = await github.rest.issues.listMilestones({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'all'
+            });
+            
+            const existingTitles = new Set(existingMilestones.map(m => m.title));
+            console.log(`Existing milestones: ${Array.from(existingTitles).join(', ')}`);
+            
+            const allCreated = [];
+            const allSkipped = [];
+            
+            // Now try to create each unique next version
+            for (const nextVersion of uniqueNextVersions) {
+              if (existingTitles.has(nextVersion)) {
+                allSkipped.push(nextVersion);
+                console.log(`Milestone already exists: ${nextVersion}`);
+              } else {
+                try {
+                  await github.rest.issues.createMilestone({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    title: nextVersion,
+                    description: `Release planning milestone for version ${nextVersion}`
+                  });
+                  allCreated.push(nextVersion);
+                  console.log(`Created milestone: ${nextVersion}`);
+                } catch (error) {
+                  console.error(`Failed to create milestone ${nextVersion}: ${error.message}`);
+                }
+              }
+            }
+            
+            // Summary
+            console.log(`\n=== Summary ===`);
+            console.log(`Processed versions: ${versions.join(', ')}`);
+            console.log(`Unique next versions: ${uniqueNextVersions.join(', ')}`);
+            console.log(`Created milestones: ${allCreated.length > 0 ? allCreated.join(', ') : 'none'}`);
+            console.log(`Skipped milestones: ${allSkipped.length > 0 ? allSkipped.join(', ') : 'none'}`);
+            
+            if (allCreated.length > 0) {
+              core.summary.addHeading('🎯 Auto-Created Milestones');
+              core.summary.addList(allCreated.map(v => `Version ${v}`));
+              await core.summary.write();
+            }

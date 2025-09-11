@@ -29,26 +29,28 @@ LOGGER = logging.getLogger(__name__)
 # --------------------------------------------------------------------------- #
 
 
-def _warn_better_format_guess_for_html(html: str) -> None:
+def _warn_better_format_guess_for_html(html: str, path: Path) -> None:
     """Warn if HTML likely loses embeds vs. MHTML."""
     role_markers = len(re.findall(r'data-message-author-role=(["\'])', html))
     img_http = len(re.findall(r'<img[^>]+src=["\']https?://', html, flags=re.I))
     cid_refs = len(re.findall(r'src=["\']cid:', html, flags=re.I))
     if cid_refs > 0:
         LOGGER.warning(
-            "HTML references cid: resources; an MHTML export typically embeds those. "
-            "Prefer MHTML if available."
+            "%s: HTML references cid: resources; an MHTML export typically embeds those. "
+            "Prefer MHTML if available.",
+            path,
         )
     elif role_markers == 0 and img_http >= 5:
         LOGGER.warning(
-            "HTML has many external images but no clear chat role markers. "
+            "%s: HTML has many external images but no clear chat role markers. "
             "An MHTML export often preserves inline assets better. "
-            "Consider MHTML if available."
+            "Consider MHTML if available.",
+            path,
         )
 
 
 def _warn_better_format_guess_for_mhtml(
-    html_parts: list[str], resources: dict[str, tuple[str, bytes]]
+    html_parts: list[str], resources: dict[str, tuple[str, bytes]], path: Path
 ) -> None:
     """Warn if MHTML looks incomplete vs. HTML."""
     combined = "\n".join(html_parts)
@@ -57,21 +59,24 @@ def _warn_better_format_guess_for_mhtml(
     missing = len(cid_refs) - resolved
     if len(html_parts) == 1 and resolved == 0 and len(combined) < 20_000:
         LOGGER.warning(
-            "MHTML contains no resolved inline resources and limited text. "
-            "An HTML export may yield richer content. Prefer HTML if available."
+            "%s: MHTML contains no resolved inline resources and limited text. "
+            "An HTML export may yield richer content. Prefer HTML if available.",
+            path,
         )
     elif missing > 0:
         LOGGER.warning(
-            "Some MHTML inline resources referenced by cid: were not found. "
-            "If possible, try the HTML export as well."
+            "%s: Some MHTML inline resources referenced by cid: were not found. "
+            "If possible, try the HTML export as well.",
+            path,
         )
 
 
-def _warn_better_format_guess_for_pdf(pages_extracted: int, text_len: int) -> None:
+def _warn_better_format_guess_for_pdf(pages_extracted: int, text_len: int, path: Path) -> None:
     """Warn that PDF is less preferred than HTML/MHTML."""
     LOGGER.warning(
-        "PDF text extraction is best-effort and loses structure. "
+        "%s: PDF text extraction is best-effort and loses structure. "
         "Prefer HTML or MHTML exports whenever available."
+        path,
     )
 
 
@@ -230,7 +235,12 @@ def try_extract_messages_with_roles(html: str) -> list[tuple[str, str]] | None:
     if out:
         return out
 
-    # Heuristic class-based
+    # Microsoft Copilot conversation detection
+    copilot_chat = soup.select_one('[data-testid="highlighted-chats"]')
+    if copilot_chat:
+        return _extract_copilot_messages(copilot_chat)
+
+    # Heuristic class-based (with filtering for actual conversation content)
     candidates = soup.find_all(["div", "section", "article"], class_=True)
     for el in candidates:
         if not isinstance(el, Tag):
@@ -249,6 +259,18 @@ def try_extract_messages_with_roles(html: str) -> list[tuple[str, str]] | None:
             else ("user" if any(k in classes for k in ("user", "you")) else "unknown")
         )
         if role != "unknown":
+            # Filter out UI elements by checking for meaningful content
+            text_content = el.get_text().strip()
+            if len(text_content) < 20:  # Skip short UI elements
+                continue
+            
+            # Skip elements that are clearly UI components
+            if any(ui_term in classes for ui_term in (
+                "absolute", "relative", "fixed", "sticky", "hidden", "pointer-events-none",
+                "bottom-0", "top-0", "z-10", "z-20", "overlay", "backdrop"
+            )):
+                continue
+
             content = (
                 el.select_one(".markdown, .prose, .message-content, [data-message-content]") or el
             )
@@ -283,6 +305,40 @@ def try_extract_messages_with_roles(html: str) -> list[tuple[str, str]] | None:
         if role != "unknown" and hasattr(el, "decode_contents"):
             out.append((role, el.decode_contents()))
     return out or None
+
+
+def _extract_copilot_messages(chat_container) -> list[tuple[str, str]] | None:
+    """Extract conversation messages from Microsoft Copilot chat container."""
+    
+    
+    # Get the full text content and parse it for conversation patterns
+    full_text = chat_container.get_text()
+    
+    # Microsoft Copilot pattern: "Sie sagten" followed by content, then "Copilot sagt[e]" followed by content
+    messages = []
+    
+    # Split by "Sie sagten" to get conversation segments
+    segments = full_text.split('Sie sagten')[1:]  # Skip first split (before first "Sie sagten")
+    
+    for segment in segments:
+        # Look for Copilot responses (handling both "Copilot sagt" and "Copilot sagte")
+        copilot_match = re.search(r'Copilot sagt[e]?(.+?)(?=Sie sagten|Nachricht an Copilot|$)', segment, re.DOTALL)
+        if copilot_match:
+            # Extract user message (everything before "Copilot sagt[e]")
+            user_split = re.split(r'Copilot sagt[e]?', segment, 1)
+            if len(user_split) > 0:
+                user_content = user_split[0].strip()
+                if user_content and len(user_content) > 5:
+                    messages.append(("user", user_content))
+            
+            # Extract assistant message
+            assistant_content = copilot_match.group(1).strip()
+            # Remove trailing input prompts and UI text
+            assistant_content = re.sub(r'Nachricht an Copilot.*$', '', assistant_content, flags=re.DOTALL).strip()
+            if assistant_content and len(assistant_content) > 5:
+                messages.append(("assistant", assistant_content))
+    
+    return messages if messages else None
 
 
 def dialogue_html_to_md(
@@ -341,7 +397,7 @@ def _process_single(path: Path, outdir: Path | None) -> list[Path]:
         html_parts, resources = _build_resource_map_from_mhtml(path)
         if not html_parts:
             raise RuntimeError(f"No text/html parts found in {path}")
-        _warn_better_format_guess_for_mhtml(html_parts, resources)
+        _warn_better_format_guess_for_mhtml(html_parts, resources, path)
         for i, html in enumerate(html_parts):
             md = dialogue_html_to_md(
                 html, resources=resources, log_prefix=f"[{path.name} part {i}] "
@@ -355,7 +411,7 @@ def _process_single(path: Path, outdir: Path | None) -> list[Path]:
     elif suffix in (".html", ".htm"):
         LOGGER.info("Processing HTML: %s", path)
         html = path.read_text(encoding="utf-8", errors="replace")
-        _warn_better_format_guess_for_html(html)
+        _warn_better_format_guess_for_html(html, path)
         md = dialogue_html_to_md(html, resources=None, log_prefix=f"[{path.name}] ")
         if not md.strip():
             raise RuntimeError(f"No extractable content in {path}")
@@ -366,7 +422,7 @@ def _process_single(path: Path, outdir: Path | None) -> list[Path]:
     elif suffix == ".pdf":
         LOGGER.info("Processing PDF: %s", path)
         text, pages = _pdf_to_text(path)
-        _warn_better_format_guess_for_pdf(pages_extracted=pages, text_len=len(text))
+        _warn_better_format_guess_for_pdf(pages_extracted=pages, text_len=len(text), path=path)
         if not text.strip():
             raise RuntimeError(f"No extractable content in {path}")
         out = (outdir or path.parent) / f"{path.stem}.md"
@@ -410,23 +466,25 @@ def process_many(inputs: Sequence[str], outdir: Path | None, jobs: int) -> list[
         return []
 
     # group-level format advice
-    by_stem: dict[str, set[str]] = {}
+    by_stem: dict[str, list[Path]] = {}
     for p in files:
         stem = p.stem.lower()
-        exts = by_stem.setdefault(stem, set())
-        exts.add(p.suffix.lower())
-    for stem, exts in by_stem.items():
+        by_stem.setdefault(stem, []).append(p)
+    for stem, file_list in by_stem.items():
+        exts = {f.suffix.lower() for f in file_list}
         if any(e in exts for e in [".html", ".htm"]) and any(e in exts for e in [".mhtml", ".mht"]):
+            paths_str = ", ".join(str(f) for f in file_list)
             LOGGER.warning(
-                "Both HTML and MHTML present for '%s'. "
+                "Both HTML and MHTML present for files: %s. "
                 "The tool will compare them; prefer the richer result.",
-                stem,
+                paths_str,
             )
         if ".pdf" in exts and (any(e in exts for e in [".html", ".htm", ".mhtml", ".mht"])):
+            paths_str = ", ".join(str(f) for f in file_list)
             LOGGER.warning(
-                "PDF provided alongside HTML/MHTML for '%s'; "
+                "PDF provided alongside HTML/MHTML for files: %s; "
                 "prefer HTML/MHTML over PDF when possible.",
-                stem,
+                paths_str,
             )
 
     if outdir:
