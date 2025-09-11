@@ -18,6 +18,7 @@ import re
 from collections.abc import Sequence
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 from email import policy
+from email.message import Message
 from email.parser import BytesParser
 from pathlib import Path
 
