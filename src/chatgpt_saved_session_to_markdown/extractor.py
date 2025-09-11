@@ -340,7 +340,6 @@ def process_many(inputs: Sequence[str], outdir: Path | None, jobs: int) -> list[
     for p in files:
         stem = p.stem.lower()
         by_stem.setdefault(stem, []).append(p)
-    
     for stem, file_list in by_stem.items():
         exts = {f.suffix.lower() for f in file_list}
         if any(e in exts for e in [".html", ".htm"]) and any(e in exts for e in [".mhtml", ".mht"]):
