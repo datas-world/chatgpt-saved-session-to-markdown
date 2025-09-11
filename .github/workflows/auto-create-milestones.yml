@@ -118,6 +118,37 @@ jobs:
             
             console.log(`Processing ${versions.length} versions: ${versions.join(', ')}`);
             
+            // First, generate the set of nextVersions from all versions
+            const nextVersions = new Set();
+            
+            for (const version of versions) {
+              console.log(`Calculating next versions for: ${version}`);
+              
+              // Parse major.minor.patch version
+              const match = version.match(/^(\d+)\.(\d+)\.(\d+)$/);
+              if (!match) {
+                console.error(`Failed to parse major.minor.patch version: ${version} - skipping.`);
+                continue;
+              }
+              
+              const [, major, minor, patch] = match.map(Number);
+              
+              // Calculate next versions for this base version
+              const versionNextVersions = [
+                `${major + 1}.0.0`,  // Next major
+                `${major}.${minor + 1}.0`,  // Next minor
+                `${major}.${minor}.${patch + 1}`  // Next patch
+              ];
+              
+              console.log(`Next versions for ${version}: ${versionNextVersions.join(', ')}`);
+              
+              // Add to the set (automatically deduplicates)
+              versionNextVersions.forEach(v => nextVersions.add(v));
+            }
+            
+            const uniqueNextVersions = Array.from(nextVersions).sort();
+            console.log(`\nUnique next versions to process: ${uniqueNextVersions.join(', ')}`);
+            
             // Get existing milestones
             const { data: existingMilestones } = await github.rest.issues.listMilestones({
               owner: context.repo.owner,
@@ -131,48 +162,23 @@ jobs:
             const allCreated = [];
             const allSkipped = [];
             
-            // Process all versions
-            for (const version of versions) {
-              console.log(`\nProcessing version: ${version}`);
-              
-              // Parse major.minor.patch version
-              const match = version.match(/^(\d+)\.(\d+)\.(\d+)$/);
-              if (!match) {
-                console.error(`Failed to parse major.minor.patch version: ${version} - skipping.`);
-                continue;
-              }
-              
-              const [, major, minor, patch] = match.map(Number);
-              console.log(`Parsed version: ${major}.${minor}.${patch}`);
-              
-              // Calculate next versions for this base version
-              const nextVersions = [
-                `${major + 1}.0.0`,  // Next major
-                `${major}.${minor + 1}.0`,  // Next minor
-                `${major}.${minor}.${patch + 1}`  // Next patch
-              ];
-              
-              console.log(`Next versions for ${version}: ${nextVersions.join(', ')}`);
-              
-              // Create milestones that don't exist
-              for (const nextVersion of nextVersions) {
-                if (existingTitles.has(nextVersion)) {
-                  allSkipped.push(nextVersion);
-                  console.log(`Milestone already exists: ${nextVersion}`);
-                } else {
-                  try {
-                    await github.rest.issues.createMilestone({
-                      owner: context.repo.owner,
-                      repo: context.repo.repo,
-                      title: nextVersion,
-                      description: `Release milestone for version ${nextVersion}`
-                    });
-                    allCreated.push(nextVersion);
-                    existingTitles.add(nextVersion); // Prevent duplicates in this run
-                    console.log(`Created milestone: ${nextVersion}`);
-                  } catch (error) {
-                    console.error(`Failed to create milestone ${nextVersion}: ${error.message}`);
-                  }
+            // Now try to create each unique next version
+            for (const nextVersion of uniqueNextVersions) {
+              if (existingTitles.has(nextVersion)) {
+                allSkipped.push(nextVersion);
+                console.log(`Milestone already exists: ${nextVersion}`);
+              } else {
+                try {
+                  await github.rest.issues.createMilestone({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    title: nextVersion,
+                    description: `Release milestone for version ${nextVersion}`
+                  });
+                  allCreated.push(nextVersion);
+                  console.log(`Created milestone: ${nextVersion}`);
+                } catch (error) {
+                  console.error(`Failed to create milestone ${nextVersion}: ${error.message}`);
                 }
               }
             }
@@ -180,6 +186,7 @@ jobs:
             // Summary
             console.log(`\n=== Summary ===`);
             console.log(`Processed versions: ${versions.join(', ')}`);
+            console.log(`Unique next versions: ${uniqueNextVersions.join(', ')}`);
             console.log(`Created milestones: ${allCreated.length > 0 ? allCreated.join(', ') : 'none'}`);
             console.log(`Skipped milestones: ${allSkipped.length > 0 ? allSkipped.join(', ') : 'none'}`);
             
