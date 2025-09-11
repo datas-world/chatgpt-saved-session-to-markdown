@@ -96,6 +96,7 @@ repos:
     rev: 0.7.22
     hooks:
       - id: mdformat
+        args: ["--number"]
         additional_dependencies: [mdformat-gfm>=0.4.1, mdformat-frontmatter>=2.0.8]
 
   # ---------- Security: dependency audit ----------
