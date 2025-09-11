@@ -9,6 +9,7 @@ from __future__ import annotations
 import base64
 import logging
 import os
+import quopri
 import re
 from collections.abc import Sequence
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
@@ -71,6 +72,60 @@ def _warn_better_format_guess_for_pdf(pages_extracted: int, text_len: int) -> No
 
 
 # --------------------------------------------------------------------------- #
+# Content-Transfer-Encoding handling per RFC 1341                             #
+# --------------------------------------------------------------------------- #
+
+
+def _decode_content_transfer_encoding(payload: bytes, encoding: str | None) -> bytes:
+    """Decode Content-Transfer-Encoding according to RFC 1341 with priority order.
+    
+    Priority order per RFC 1341: quoted-printable > base64 > binary > 8bit > 7bit
+    Uses COTS packages (standard library base64, quopri) with proper validation.
+    
+    Args:
+        payload: Raw payload bytes
+        encoding: Content-Transfer-Encoding value (case-insensitive)
+        
+    Returns:
+        Decoded payload bytes
+        
+    Raises:
+        RuntimeError: If decoding fails for supported encodings
+    """
+    if not encoding:
+        # Default to 7bit if no encoding specified (RFC 1341 default)
+        return payload
+    
+    encoding_lower = encoding.strip().lower()
+    
+    # Handle priority order - quoted-printable has highest priority
+    if encoding_lower == "quoted-printable":
+        try:
+            # Use quopri module for quoted-printable (COTS package)
+            return quopri.decodestring(payload)
+        except Exception as exc:
+            raise RuntimeError(f"Failed to decode quoted-printable content: {exc}") from exc
+    
+    # base64 has second priority
+    elif encoding_lower == "base64":
+        try:
+            # Use base64 module with validation (COTS package)
+            return base64.b64decode(payload, validate=True)
+        except Exception as exc:
+            raise RuntimeError(f"Failed to decode base64 content: {exc}") from exc
+    
+    # binary, 8bit, 7bit have lower priorities but no decoding needed
+    elif encoding_lower in ("binary", "8bit", "7bit"):
+        # No decoding needed for these encodings
+        return payload
+    
+    else:
+        # Unknown encoding - log warning and return as-is per RFC fallback behavior
+        LOGGER.warning("Unknown Content-Transfer-Encoding '%s', treating as binary", encoding)
+        return payload
+
+
+# --------------------------------------------------------------------------- #
 # MHTML parsing & in-memory resource embedding                                 #
 # --------------------------------------------------------------------------- #
 
@@ -86,7 +141,24 @@ def _build_resource_map_from_mhtml(path: Path) -> tuple[list[str], dict[str, tup
             if not isinstance(sub, Message):
                 continue
             ctype = (sub.get_content_type() or "").lower()
-            payload = sub.get_payload(decode=True) or b""
+            
+            # Get raw payload and Content-Transfer-Encoding
+            raw_payload = sub.get_payload(decode=False)
+            if isinstance(raw_payload, str):
+                raw_payload = raw_payload.encode('utf-8')
+            elif raw_payload is None:
+                raw_payload = b""
+            
+            encoding = sub.get("Content-Transfer-Encoding")
+            
+            # Use robust Content-Transfer-Encoding decoder
+            try:
+                payload = _decode_content_transfer_encoding(raw_payload, encoding)
+            except RuntimeError as exc:
+                LOGGER.error("Content-Transfer-Encoding decode error in %s: %s", path.name, exc)
+                # Fallback to raw payload on decode error
+                payload = raw_payload
+            
             if ctype.startswith("text/html"):
                 try:
                     text = payload.decode(sub.get_content_charset() or "utf-8", errors="replace")
@@ -102,7 +174,23 @@ def _build_resource_map_from_mhtml(path: Path) -> tuple[list[str], dict[str, tup
                     resources[loc] = (ctype, payload)
     else:
         if (msg.get_content_type() or "").lower().startswith("text/html"):
-            payload = msg.get_payload(decode=True) or b""
+            # Get raw payload and Content-Transfer-Encoding
+            raw_payload = msg.get_payload(decode=False)
+            if isinstance(raw_payload, str):
+                raw_payload = raw_payload.encode('utf-8')
+            elif raw_payload is None:
+                raw_payload = b""
+            
+            encoding = msg.get("Content-Transfer-Encoding")
+            
+            # Use robust Content-Transfer-Encoding decoder
+            try:
+                payload = _decode_content_transfer_encoding(raw_payload, encoding)
+            except RuntimeError as exc:
+                LOGGER.error("Content-Transfer-Encoding decode error in %s: %s", path.name, exc)
+                # Fallback to raw payload on decode error
+                payload = raw_payload
+            
             html_parts.append(
                 payload.decode(msg.get_content_charset() or "utf-8", errors="replace")
             )
