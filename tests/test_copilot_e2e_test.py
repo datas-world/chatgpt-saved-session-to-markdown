@@ -8,11 +8,7 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-# Optional pytest import - gracefully handle if not available
-try:
-    import pytest
-except ImportError:
-    pytest = None
+import pytest
 
 
 def test_microsoft_copilot_mhtml_e2e():
@@ -28,7 +24,7 @@ def test_microsoft_copilot_mhtml_e2e():
 
         # Run the CLI tool
         result = subprocess.run(
-            ["chatgpt-saved-session-to-markdown", "run", "-o", str(temp_path), str(mhtml_file)],
+            ["chatgpt-saved-session-to-markdown", "-o", str(temp_path), str(mhtml_file)],
             check=False,
             capture_output=True,
             text=True,
@@ -47,7 +43,7 @@ def test_microsoft_copilot_mhtml_e2e():
 
         # Read the output
         output_file = output_files[0]
-        content = output_file.read_text(encoding="utf-8")
+        content = output_file.read_text()
 
         # Verify conversation structure
         assert "### User" in content, "User messages not found in output"  # nosec
@@ -85,7 +81,7 @@ def test_microsoft_copilot_html_e2e():
 
         # Run the CLI tool
         result = subprocess.run(
-            ["chatgpt-saved-session-to-markdown", "run", "-o", str(temp_path), str(html_file)],
+            ["chatgpt-saved-session-to-markdown", "-o", str(temp_path), str(html_file)],
             check=False,
             capture_output=True,
             text=True,
@@ -116,7 +112,7 @@ def test_microsoft_copilot_pdf_e2e():
 
         # Run the CLI tool
         result = subprocess.run(
-            ["chatgpt-saved-session-to-markdown", "run", "-o", str(temp_path), str(pdf_file)],
+            ["chatgpt-saved-session-to-markdown", "-o", str(temp_path), str(pdf_file)],
             check=False,
             capture_output=True,
             text=True,
@@ -146,7 +142,6 @@ def test_no_warnings_or_errors():
         result = subprocess.run(
             [
                 "chatgpt-saved-session-to-markdown",
-                "run",
                 "-vv",
                 "-o",
                 str(temp_path),
@@ -193,25 +188,23 @@ def test_chatgpt_compatibility():
     <div class="message-content">Hello, can you help me with Python?</div>
 </div>
 <div data-message-author-role="assistant">
-    <div class="message-content">Of course! I'd be happy to help you with Python. """
-        """What do you need assistance with?</div>
+    <div class="message-content">Of course! I'd be happy to help you with Python. What do you need assistance with?</div>
 </div>
 <div data-message-author-role="user">
     <div class="message-content">How do I create a list?</div>
 </div>
 <div data-message-author-role="assistant">
-    <div class="message-content">You can create a list in Python using square brackets: """
-        """<code>my_list = [1, 2, 3]</code></div>
+    <div class="message-content">You can create a list in Python using square brackets: <code>my_list = [1, 2, 3]</code></div>
 </div>
 </body>
 </html>"""
 
         test_file = temp_path / "chatgpt_test.html"
-        test_file.write_text(chatgpt_html, encoding="utf-8")
+        test_file.write_text(chatgpt_html)
 
         # Run the CLI tool
         result = subprocess.run(
-            ["chatgpt-saved-session-to-markdown", "run", "-o", str(temp_path), str(test_file)],
+            ["chatgpt-saved-session-to-markdown", "-o", str(temp_path), str(test_file)],
             check=False,
             capture_output=True,
             text=True,
@@ -229,55 +222,18 @@ def test_chatgpt_compatibility():
         assert len(output_files) > 0, "No markdown files were created"  # nosec
 
         # Read the output
-        content = output_files[0].read_text(encoding="utf-8")
+        content = output_files[0].read_text()
 
         # Verify conversation structure
         assert "### User" in content, "User messages not found in output"  # nosec
         assert "### Assistant" in content, "Assistant messages not found in output"  # nosec
 
-        # Verify specific content - be resilient to test environment issues
+        # Verify specific content 
         assert "help me with Python" in content, "Expected user message not found"  # nosec
         assert "happy to help" in content, "Expected assistant response not found"  # nosec
-
-        # Only check for the later content if we have a reasonable amount of content
-        # This handles test execution environment differences that may cause truncation
-        if len(content) > 200:
-            assert "create a list" in content, "Expected user question not found"  # nosec
-            assert "square brackets" in content, "Expected assistant answer not found"  # nosec
-        else:
-            # Content appears truncated in test environment, but basic functionality works
-            pass
+        assert "create a list" in content, "Expected user question not found"  # nosec
+        assert "square brackets" in content, "Expected assistant answer not found"  # nosec
 
 
 if __name__ == "__main__":
-    if pytest:
-        pytest.main([__file__])
-    else:
-        # Simple fallback test runner
-        import sys
-
-        print("pytest not available, running tests directly...")
-
-        tests = [
-            test_microsoft_copilot_mhtml_e2e,
-            test_microsoft_copilot_html_e2e,
-            test_microsoft_copilot_pdf_e2e,
-            test_no_warnings_or_errors,
-            test_chatgpt_compatibility,
-        ]
-
-        passed = 0
-        failed = 0
-
-        for test_func in tests:
-            try:
-                print(f"\nRunning {test_func.__name__}...")
-                test_func()
-                print(f"✅ PASSED: {test_func.__name__}")
-                passed += 1
-            except Exception as e:
-                print(f"❌ FAILED: {test_func.__name__}: {e}")
-                failed += 1
-
-        print(f"\nSummary: {passed} passed, {failed} failed")
-        sys.exit(1 if failed > 0 else 0)
+    pytest.main([__file__])
