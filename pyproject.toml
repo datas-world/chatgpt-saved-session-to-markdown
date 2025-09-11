@@ -93,7 +93,7 @@ strict_equality = true
 plugins = [  ]
 
 [tool.bandit]
-skips = ["B603", "B607"]  # Skip subprocess warnings for test files
+skips = [ "B603", "B607" ] # Skip subprocess warnings for test files
 
 [tool.bandit.assert_used]
 skips = [ 'tests/*_tests.py', 'tests/test_*.py' ]

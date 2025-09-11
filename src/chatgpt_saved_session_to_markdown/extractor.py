@@ -71,9 +71,7 @@ def _warn_better_format_guess_for_mhtml(
         )
 
 
-def _warn_better_format_guess_for_pdf(
-    pages_extracted: int, text_len: int, path: Path
-) -> None:
+def _warn_better_format_guess_for_pdf(pages_extracted: int, text_len: int, path: Path) -> None:
     """Warn that PDF is less preferred than HTML/MHTML."""
     LOGGER.warning(
         "%s: PDF text extraction is best-effort and loses structure. "
@@ -110,9 +108,7 @@ def _build_resource_map_from_mhtml(
                 continue
             if ctype.startswith("text/html"):
                 try:
-                    text = payload.decode(
-                        sub.get_content_charset() or "utf-8", errors="replace"
-                    )
+                    text = payload.decode(sub.get_content_charset() or "utf-8", errors="replace")
                 except Exception:
                     text = payload.decode("utf-8", errors="replace")
                 html_parts.append(text)
@@ -132,9 +128,7 @@ def _build_resource_map_from_mhtml(
                 payload = payload.encode("utf-8")
             if isinstance(payload, bytes):
                 html_parts.append(
-                    payload.decode(
-                        msg.get_content_charset() or "utf-8", errors="replace"
-                    )
+                    payload.decode(msg.get_content_charset() or "utf-8", errors="replace")
                 )
     return html_parts, resources
 
@@ -232,9 +226,9 @@ def try_extract_messages_with_roles(html: str) -> list[tuple[str, str]] | None:
         else:
             role = str(role_raw).strip().lower()
         if role in {"user", "assistant", "system", "gpt"}:
-            content = el1.select_one(
-                ".markdown, .prose, .message-content, [data-message-content]"
-            ) or el1
+            content = (
+                el1.select_one(".markdown, .prose, .message-content, [data-message-content]") or el1
+            )
             if hasattr(content, "decode_contents"):
                 body_html = content.decode_contents()
                 out.append((role, body_html))
@@ -290,18 +284,16 @@ def try_extract_messages_with_roles(html: str) -> list[tuple[str, str]] | None:
             ):
                 continue
 
-            content = el2.select_one(
-                ".markdown, .prose, .message-content, [data-message-content]"
-            ) or el2
+            content = (
+                el2.select_one(".markdown, .prose, .message-content, [data-message-content]") or el2
+            )
             if hasattr(content, "decode_contents"):
                 out.append((role, content.decode_contents()))
     if out:
         return out
 
     # ARIA/data-role hints
-    for el3 in soup.select(
-        '[aria-label*="User" i], [aria-label*="Assistant" i], [data-role]'
-    ):
+    for el3 in soup.select('[aria-label*="User" i], [aria-label*="Assistant" i], [data-role]'):
         if not hasattr(el3, "get"):
             continue
         aria_raw = el3.get("aria-label")
@@ -350,9 +342,7 @@ def _extract_copilot_messages(chat_container: Tag) -> list[tuple[str, str]] | No
         )
         if copilot_match:
             # Extract user message (everything before "Copilot sagt[e]")
-            user_split = re.split(
-                pattern=r"Copilot sagt[e]?", string=segment, maxsplit=1
-            )
+            user_split = re.split(pattern=r"Copilot sagt[e]?", string=segment, maxsplit=1)
             if len(user_split) > 0:
                 user_content = user_split[0].strip()
                 if user_content and len(user_content) > 5:
@@ -451,9 +441,7 @@ def _process_single(path: Path, outdir: Path | None) -> list[Path]:
     elif suffix == ".pdf":
         LOGGER.info("Processing PDF: %s", path)
         text, pages = _pdf_to_text(path)
-        _warn_better_format_guess_for_pdf(
-            pages_extracted=pages, text_len=len(text), path=path
-        )
+        _warn_better_format_guess_for_pdf(pages_extracted=pages, text_len=len(text), path=path)
         if not text.strip():
             raise RuntimeError(f"No extractable content in {path}")
         out = (outdir or path.parent) / f"{path.stem}.md"
@@ -503,18 +491,14 @@ def process_many(inputs: Sequence[str], outdir: Path | None, jobs: int) -> list[
         by_stem.setdefault(stem, []).append(p)
     for _stem, file_list in by_stem.items():
         exts = {f.suffix.lower() for f in file_list}
-        if any(e in exts for e in [".html", ".htm"]) and any(
-            e in exts for e in [".mhtml", ".mht"]
-        ):
+        if any(e in exts for e in [".html", ".htm"]) and any(e in exts for e in [".mhtml", ".mht"]):
             paths_str = ", ".join(str(f) for f in file_list)
             LOGGER.warning(
                 "Both HTML and MHTML present for files: %s. "
                 "The tool will compare them; prefer the richer result.",
                 paths_str,
             )
-        if ".pdf" in exts and (
-            any(e in exts for e in [".html", ".htm", ".mhtml", ".mht"])
-        ):
+        if ".pdf" in exts and (any(e in exts for e in [".html", ".htm", ".mhtml", ".mht"])):
             paths_str = ", ".join(str(f) for f in file_list)
             LOGGER.warning(
                 "PDF provided alongside HTML/MHTML for files: %s; "

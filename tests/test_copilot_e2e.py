@@ -32,9 +32,7 @@ def test_microsoft_copilot_mhtml_e2e():
         )
 
         # Check exit code
-        assert (  # nosec
-            result.returncode == 0
-        ), (
+        assert result.returncode == 0, (  # nosec
             f"CLI failed with exit code {result.returncode}:\n"
             f"stdout: {result.stdout}\nstderr: {result.stderr}"
         )
@@ -91,9 +89,7 @@ def test_microsoft_copilot_html_e2e():
         )
 
         # Check exit code
-        assert (  # nosec
-            result.returncode == 0
-        ), (
+        assert result.returncode == 0, (  # nosec
             f"CLI failed with exit code {result.returncode}:\n"
             f"stdout: {result.stdout}\nstderr: {result.stderr}"
         )
@@ -124,9 +120,7 @@ def test_microsoft_copilot_pdf_e2e():
         )
 
         # Check exit code
-        assert (  # nosec
-            result.returncode == 0
-        ), (
+        assert result.returncode == 0, (  # nosec
             f"CLI failed with exit code {result.returncode}:\n"
             f"stdout: {result.stdout}\nstderr: {result.stderr}"
         )
@@ -221,9 +215,7 @@ def test_chatgpt_compatibility():
         )
 
         # Check exit code
-        assert (  # nosec
-            result.returncode == 0
-        ), (
+        assert result.returncode == 0, (  # nosec
             f"CLI failed with exit code {result.returncode}:\n"
             f"stdout: {result.stdout}\nstderr: {result.stderr}"
         )
