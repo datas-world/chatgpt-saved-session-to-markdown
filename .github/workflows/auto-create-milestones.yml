@@ -55,7 +55,7 @@ jobs:
           echo "Processing version: $VERSION"
 
       - name: Calculate next versions and create milestones
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v7.0.1
         with:
           script: |
             const version = '${{ steps.version.outputs.version }}';
