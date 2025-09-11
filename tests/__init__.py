@@ -2,4 +2,4 @@
 # GNU General Public License
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-* @torsknod2 @torsknod datas-world/maintainers
+"""Test suite for chatgpt-saved-session-to-markdown."""

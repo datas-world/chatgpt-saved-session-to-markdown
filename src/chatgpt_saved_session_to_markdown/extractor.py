@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import base64
 import codecs
+import contextlib
+import glob
 import locale
 import logging
 import os
@@ -17,12 +19,12 @@ from collections.abc import Sequence
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from concurrent.futures import as_completed
 from email import policy
-from email.message import Message
 from email.parser import BytesParser
 from pathlib import Path
 
-from bs4 import BeautifulSoup
-from markdownify import markdownify as _md
+import pypdf
+from bs4 import BeautifulSoup, Tag
+from markdownify import markdownify as _md  # type: ignore[import-untyped]
 
 LOGGER = logging.getLogger(__name__)
 
@@ -38,13 +40,15 @@ def _warn_better_format_guess_for_html(html: str, path: Path) -> None:
     cid_refs = len(re.findall(r'src=["\']cid:', html, flags=re.I))
     if cid_refs > 0:
         LOGGER.warning(
-            "%s: HTML references cid: resources; an MHTML export typically embeds those. Prefer MHTML if available.",
+            "%s: HTML references cid: resources; an MHTML export typically "
+            "embeds those. Prefer MHTML if available.",
             path,
         )
     elif role_markers == 0 and img_http >= 5:
         LOGGER.warning(
             "%s: HTML has many external images but no clear chat role markers. "
-            "An MHTML export often preserves inline assets better. Consider MHTML if available.",
+            "An MHTML export often preserves inline assets better. "
+            "Consider MHTML if available.",
             path,
         )
 
@@ -72,9 +76,10 @@ def _warn_better_format_guess_for_mhtml(
 
 
 def _warn_better_format_guess_for_pdf(pages_extracted: int, text_len: int, path: Path) -> None:
-    """Always warn that PDF is less preferred than HTML/MHTML."""
+    """Warn that PDF is less preferred than HTML/MHTML."""
     LOGGER.warning(
-        "%s: PDF text extraction is best-effort and loses structure. Prefer HTML or MHTML exports whenever available.",
+        "%s: PDF text extraction is best-effort and loses structure. "
+        "Prefer HTML or MHTML exports whenever available.",
         path,
     )
 
@@ -233,7 +238,9 @@ def _extract_and_decode_payload(message: Message, log_context: str) -> bytes:
 # --------------------------------------------------------------------------- #
 
 
-def _build_resource_map_from_mhtml(path: Path) -> tuple[list[str], dict[str, tuple[str, bytes]]]:
+def _build_resource_map_from_mhtml(
+    path: Path,
+) -> tuple[list[str], dict[str, tuple[str, bytes]]]:
     """Return (html_parts, resources) from an MHTML file; no temp files."""
     html_parts: list[str] = []
     resources: dict[str, tuple[str, bytes]] = {}
@@ -241,7 +248,8 @@ def _build_resource_map_from_mhtml(path: Path) -> tuple[list[str], dict[str, tup
         msg = BytesParser(policy=policy.default).parse(f)
     if msg.is_multipart():
         for sub in msg.walk():
-            if not isinstance(sub, Message):
+            # Only process Message objects
+            if not hasattr(sub, "get_content_type"):
                 continue
             ctype = (sub.get_content_type() or "").lower()
             
@@ -283,6 +291,7 @@ def _build_resource_map_from_mhtml(path: Path) -> tuple[list[str], dict[str, tup
 def _to_data_uri(mime: str, data: bytes) -> str:
     # base64 encoding always produces ASCII-safe output per RFC 4648
     # See: https://tools.ietf.org/html/rfc4648#section-4
+    """Convert binary data to data URI format."""
     return "data:" + mime + ";base64," + base64.b64encode(data).decode("ascii")
 
 
@@ -294,8 +303,20 @@ def _resolve_embeds(
         return html
     soup = BeautifulSoup(html, "lxml")
     for tag in soup.find_all(["img", "a", "source"]):
+        # Type narrowing: find_all with specific tag names returns Tag objects
+        if not isinstance(tag, Tag):
+            continue
+        if not hasattr(tag, "name") or not hasattr(tag, "get"):
+            continue
         attr = "src" if tag.name != "a" else "href"
-        val = (tag.get(attr) or "").strip()
+        val_raw = tag.get(attr)
+        if val_raw is None:
+            continue
+        # Handle different types from BeautifulSoup get()
+        if isinstance(val_raw, list):
+            val = " ".join(str(v) for v in val_raw).strip()
+        else:
+            val = str(val_raw).strip()
         if not val:
             continue
         if val in resources or (val.startswith("cid:") and val in resources):
@@ -321,7 +342,18 @@ def _html_to_markdown(html: str) -> str:
         escape_underscores=False,
         bullets="*",
         strip=None,
-        convert=["a", "img", "table", "thead", "tbody", "tr", "th", "td", "pre", "code"],
+        convert=[
+            "a",
+            "img",
+            "table",
+            "thead",
+            "tbody",
+            "tr",
+            "th",
+            "td",
+            "pre",
+            "code",
+        ],
     )
     # Normalize excessive blank lines a bit
     md = re.sub(r"\n{3,}", "\n\n", md).strip() + "\n"
@@ -339,50 +371,156 @@ def try_extract_messages_with_roles(html: str) -> list[tuple[str, str]] | None:
     out: list[tuple[str, str]] = []
 
     # Structured exports (preferred)
-    for el in soup.select("[data-message-author-role]"):
-        role = (el.get("data-message-author-role") or "").strip().lower()
+    for el1 in soup.select("[data-message-author-role]"):
+        if not hasattr(el1, "get"):
+            continue
+        role_raw = el1.get("data-message-author-role")
+        if role_raw is None:
+            continue
+        # Handle different types from BeautifulSoup get()
+        if isinstance(role_raw, list):
+            role = " ".join(str(r) for r in role_raw).strip().lower()
+        else:
+            role = str(role_raw).strip().lower()
         if role in {"user", "assistant", "system", "gpt"}:
             content = (
-                el.select_one(".markdown, .prose, .message-content, [data-message-content]") or el
+                el1.select_one(".markdown, .prose, .message-content, [data-message-content]") or el1
             )
-            body_html = content.decode_contents()
-            out.append((role, body_html))
+            if hasattr(content, "decode_contents"):
+                body_html = content.decode_contents()
+                out.append((role, body_html))
     if out:
         return out
 
-    # Heuristic class-based
+    # Microsoft Copilot conversation detection
+    copilot_chat = soup.select_one('[data-testid="highlighted-chats"]')
+    if copilot_chat:
+        return _extract_copilot_messages(copilot_chat)
+
+    # Heuristic class-based (with filtering for actual conversation content)
     candidates = soup.find_all(["div", "section", "article"], class_=True)
-    for el in candidates:
-        classes = " ".join(el.get("class", [])).lower()
+    for el2 in candidates:
+        if not isinstance(el2, Tag):
+            continue
+        # Elements from find_all with specific tag names are always Tag objects
+        class_raw = el2.get("class", None)
+        if class_raw is None:
+            continue
+        if isinstance(class_raw, list):
+            classes = " ".join(str(c) for c in class_raw).lower()
+        else:
+            classes = str(class_raw).lower()
         role = (
             "assistant"
             if any(k in classes for k in ("assistant", "gpt", "bot"))
             else ("user" if any(k in classes for k in ("user", "you")) else "unknown")
         )
         if role != "unknown":
+            # Filter out UI elements by checking for meaningful content
+            text_content = el2.get_text().strip()
+            if len(text_content) < 20:  # Skip short UI elements
+                continue
+
+            # Skip elements that are clearly UI components
+            if any(
+                ui_term in classes
+                for ui_term in (
+                    "absolute",
+                    "relative",
+                    "fixed",
+                    "sticky",
+                    "hidden",
+                    "pointer-events-none",
+                    "bottom-0",
+                    "top-0",
+                    "z-10",
+                    "z-20",
+                    "overlay",
+                    "backdrop",
+                )
+            ):
+                continue
+
             content = (
-                el.select_one(".markdown, .prose, .message-content, [data-message-content]") or el
+                el2.select_one(".markdown, .prose, .message-content, [data-message-content]") or el2
             )
-            out.append((role, content.decode_contents()))
+            if hasattr(content, "decode_contents"):
+                out.append((role, content.decode_contents()))
     if out:
         return out
 
     # ARIA/data-role hints
-    for el in soup.select('[aria-label*="User" i], [aria-label*="Assistant" i], [data-role]'):
-        aria = (el.get("aria-label") or "").lower()
-        drole = (el.get("data-role") or "").lower()
+    for el3 in soup.select('[aria-label*="User" i], [aria-label*="Assistant" i], [data-role]'):
+        if not hasattr(el3, "get"):
+            continue
+        aria_raw = el3.get("aria-label")
+        drole_raw = el3.get("data-role")
+
+        # Handle different types from BeautifulSoup get()
+        if isinstance(aria_raw, list):
+            aria = " ".join(str(a) for a in aria_raw).lower()
+        else:
+            aria = str(aria_raw or "").lower()
+
+        if isinstance(drole_raw, list):
+            drole = " ".join(str(d) for d in drole_raw).lower()
+        else:
+            drole = str(drole_raw or "").lower()
+
         role = (
             "assistant"
             if "assistant" in aria or "assistant" in drole
             else ("user" if "user" in aria or "user" in drole else "unknown")
         )
-        if role != "unknown":
-            out.append((role, el.decode_contents()))
+        if role != "unknown" and hasattr(el3, "decode_contents"):
+            out.append((role, el3.decode_contents()))
     return out or None
 
 
+def _extract_copilot_messages(chat_container: Tag) -> list[tuple[str, str]] | None:
+    """Extract conversation messages from Microsoft Copilot chat container."""
+    # Get the full text content and parse it for conversation patterns
+    full_text = chat_container.get_text()
+
+    # Microsoft Copilot pattern: "Sie sagten" followed by content,
+    # then "Copilot sagt[e]" followed by content
+    messages = []
+
+    # Split by "Sie sagten" to get conversation segments
+    # Skip first split (before first "Sie sagten")
+    segments = full_text.split("Sie sagten")[1:]
+
+    for segment in segments:
+        # Look for Copilot responses (handling both "Copilot sagt" and "Copilot sagte")
+        copilot_match = re.search(
+            r"Copilot sagt[e]?(.+?)(?=Sie sagten|Nachricht an Copilot|$)",
+            segment,
+            re.DOTALL,
+        )
+        if copilot_match:
+            # Extract user message (everything before "Copilot sagt[e]")
+            user_split = re.split(pattern=r"Copilot sagt[e]?", string=segment, maxsplit=1)
+            if len(user_split) > 0:
+                user_content = user_split[0].strip()
+                if user_content and len(user_content) > 5:
+                    messages.append(("user", user_content))
+
+            # Extract assistant message
+            assistant_content = copilot_match.group(1).strip()
+            # Remove trailing input prompts and UI text
+            assistant_content = re.sub(
+                r"Nachricht an Copilot.*$", "", assistant_content, flags=re.DOTALL
+            ).strip()
+            if assistant_content and len(assistant_content) > 5:
+                messages.append(("assistant", assistant_content))
+
+    return messages if messages else None
+
+
 def dialogue_html_to_md(
-    html: str, resources: dict[str, tuple[str, bytes]] | None = None, log_prefix: str = ""
+    html: str,
+    resources: dict[str, tuple[str, bytes]] | None = None,
+    log_prefix: str = "",
 ) -> str:
     """Try role-bucketed rendering; fall back to full-page rendering."""
     html_inlined = _resolve_embeds(html, resources, log_prefix=log_prefix)
@@ -408,8 +546,6 @@ def dialogue_html_to_md(
 
 def _pdf_to_text(path: Path) -> tuple[str, int]:
     """Extract text from PDF using pypdf (best-effort, structure lost)."""
-    import pypdf  # runtime import to keep import cost low
-
     reader = pypdf.PdfReader(str(path))
     pages: list[str] = []
     for page in reader.pages:
@@ -428,6 +564,7 @@ def _pdf_to_text(path: Path) -> tuple[str, int]:
 
 
 def _process_single(path: Path, outdir: Path | None) -> list[Path]:
+    """Process a single input file and convert it to Markdown."""
     produced: list[Path] = []
     suffix = path.suffix.lower()
 
@@ -501,24 +638,25 @@ def _process_single(path: Path, outdir: Path | None) -> list[Path]:
 
 
 def expand_paths(inputs: Sequence[str]) -> list[Path]:
-    import glob
-
+    """Expand glob patterns in input paths and return deduplicated resolved paths."""
     expanded: list[Path] = []
     for p in inputs:
         matches = glob.glob(p)
         for m in matches:
-            expanded.append(Path(m).resolve())
+            path_obj = Path(m).resolve()
+            expanded.append(path_obj)
     # de-dup while preserving order
     seen: set[Path] = set()
     uniq: list[Path] = []
-    for p in expanded:
-        if p not in seen:
-            uniq.append(p)
-            seen.add(p)
+    for path_item in expanded:
+        if path_item not in seen:
+            uniq.append(path_item)
+            seen.add(path_item)
     return uniq
 
 
 def process_many(inputs: Sequence[str], outdir: Path | None, jobs: int) -> list[Path]:
+    """Process multiple input files concurrently and return list of output paths."""
     files = expand_paths(inputs)
     if not files:
         return []
@@ -528,18 +666,20 @@ def process_many(inputs: Sequence[str], outdir: Path | None, jobs: int) -> list[
     for p in files:
         stem = p.stem.lower()
         by_stem.setdefault(stem, []).append(p)
-    for stem, file_list in by_stem.items():
+    for _stem, file_list in by_stem.items():
         exts = {f.suffix.lower() for f in file_list}
         if any(e in exts for e in [".html", ".htm"]) and any(e in exts for e in [".mhtml", ".mht"]):
             paths_str = ", ".join(str(f) for f in file_list)
             LOGGER.warning(
-                "Both HTML and MHTML present for files: %s. The tool will compare them; prefer the richer result.",
+                "Both HTML and MHTML present for files: %s. "
+                "The tool will compare them; prefer the richer result.",
                 paths_str,
             )
         if ".pdf" in exts and (any(e in exts for e in [".html", ".htm", ".mhtml", ".mht"])):
             paths_str = ", ".join(str(f) for f in file_list)
             LOGGER.warning(
-                "PDF provided alongside HTML/MHTML for files: %s; prefer HTML/MHTML over PDF when possible.",
+                "PDF provided alongside HTML/MHTML for files: %s; "
+                "prefer HTML/MHTML over PDF when possible.",
                 paths_str,
             )
 
@@ -548,17 +688,15 @@ def process_many(inputs: Sequence[str], outdir: Path | None, jobs: int) -> list[
 
     total_size = 0
     for p in files:
-        try:
+        with contextlib.suppress(OSError):
             total_size += p.stat().st_size
-        except OSError:
-            pass
     small_batch = (len(files) < 8) or (total_size < 8 * 1024 * 1024)
     max_workers = max(1, jobs or os.cpu_count() or 4)
-    Executor = ThreadPoolExecutor if small_batch else ProcessPoolExecutor
+    executor = ThreadPoolExecutor if small_batch else ProcessPoolExecutor
 
     produced_total: list[Path] = []
     failures: list[str] = []
-    with Executor(max_workers=max_workers) as ex:
+    with executor(max_workers=max_workers) as ex:
         futs = {ex.submit(_process_single, p, outdir): p for p in files}
         for fut in as_completed(futs):
             src = futs[fut]

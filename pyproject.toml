@@ -4,7 +4,6 @@
 
 [build-system]
 build-backend = "hatchling.build"
-
 requires = [ "hatch-vcs", "hatchling" ]
 
 [project]
@@ -73,7 +72,7 @@ target-version = "py312"
 
 line-length = 100
 lint.select = [ "B", "C4", "D", "E", "F", "I", "N", "PLC", "PLE", "PLW", "RUF", "SIM", "TID", "UP" ]
-lint.ignore = [  ]
+lint.ignore = [ "B008" ]                                                                             # Allow typer function calls in defaults
 lint.pydocstyle.convention = "google"
 
 [tool.isort]
@@ -92,6 +91,13 @@ warn_return_any = true
 warn_unreachable = true
 strict_equality = true
 plugins = [  ]
+
+[tool.bandit]
+skips = [ "B404", "B603", "B607" ] # Skip subprocess import and execution warnings for test files
+exclude_dirs = [ "tests" ]
+
+[tool.bandit.assert_used]
+skips = [ 'tests/*_tests.py', 'tests/test_*.py' ]
 
 [tool.interrogate]
 fail-under = 100

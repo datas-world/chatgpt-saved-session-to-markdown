@@ -8,7 +8,7 @@ __all__ = ["__version__"]
 
 try:
     # Written by hatch-vcs at build time
-    from ._version import __version__  # type: ignore[attr-defined]
+    from ._version import __version__
 except Exception:  # pragma: no cover
     try:
         # Editable installs: use importlib.metadata (PEP 566)
