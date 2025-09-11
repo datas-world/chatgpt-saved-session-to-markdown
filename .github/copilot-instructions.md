@@ -14,7 +14,7 @@ This document provides mandatory development guidelines for GitHub Copilot when 
 
 GitHub Copilot **SHALL** not consider any development task completed until all [`pre-commit`](https://pre-commit.com/) checks are passing successfully. This includes but is not limited to:
 
-- [Code formatting](https://black.readthedocs.io/) with [Black](https://black.readthedocs.io/)
+- [Code formatting with Black](https://black.readthedocs.io/)
 - [Import sorting](https://pycqa.github.io/isort/) with [isort](https://pycqa.github.io/isort/)
 - [Linting](https://docs.astral.sh/ruff/) with [Ruff](https://docs.astral.sh/ruff/)
 - [Documentation style](http://www.pydocstyle.org/) with [pydocstyle](http://www.pydocstyle.org/)
