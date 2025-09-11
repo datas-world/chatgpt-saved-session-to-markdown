@@ -50,15 +50,14 @@ repos:
     rev: v2.4.1
     hooks:
       - id: codespell
-        args: ["--ignore-words-list=crate,fo", "--skip=tests/data"]
+        args: ["--ignore-words-list=crate,fo,sie", "--skip=tests/data"]
 
   - repo: https://github.com/PyCQA/bandit
     rev: 1.8.6
     hooks:
       - id: bandit
-        args: ["-c", "pyproject.toml", "-r", "src", "--skip", "B603,B607"]
+        args: ["-c", "pyproject.toml", "-r", "src"]
         additional_dependencies: ["bandit[toml]"]
-        exclude: "^tests/"
 
   # ---------- REUSE: SPDX headers & license lint ----------
   - repo: https://github.com/fsfe/reuse-tool

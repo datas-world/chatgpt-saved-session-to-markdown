@@ -34,7 +34,8 @@ def validate_microsoft_copilot_content(content, strict=True):
 
     Args:
         content: The generated markdown content.
-        strict: If True, requires specific German content. If False, allows more flexible validation.
+        strict: If True, requires specific German content. If False, allows more
+            flexible validation.
 
     Returns:
         None
@@ -109,7 +110,10 @@ def test_microsoft_copilot_mhtml_e2e():
         # Check exit code
         assert (  # nosec
             result.returncode == 0
-        ), f"CLI failed with exit code {result.returncode}:\nstdout: {result.stdout}\nstderr: {result.stderr}"
+        ), (
+            f"CLI failed with exit code {result.returncode}:\n"
+            f"stdout: {result.stdout}\nstderr: {result.stderr}"
+        )
         print("✓ CLI executed successfully")
 
         # Check that output file was created
@@ -149,7 +153,10 @@ def test_microsoft_copilot_html_e2e():
         # Check exit code
         assert (  # nosec
             result.returncode == 0
-        ), f"CLI failed with exit code {result.returncode}:\nstdout: {result.stdout}\nstderr: {result.stderr}"
+        ), (
+            f"CLI failed with exit code {result.returncode}:\n"
+            f"stdout: {result.stdout}\nstderr: {result.stderr}"
+        )
         print("✓ CLI executed successfully")
 
         # Check that output file was created
@@ -192,7 +199,10 @@ def test_microsoft_copilot_pdf_e2e():
         # Check exit code
         assert (  # nosec
             result.returncode == 0
-        ), f"CLI failed with exit code {result.returncode}:\nstdout: {result.stdout}\nstderr: {result.stderr}"
+        ), (
+            f"CLI failed with exit code {result.returncode}:\n"
+            f"stdout: {result.stdout}\nstderr: {result.stderr}"
+        )
         print("✓ CLI executed successfully")
 
         # Check that output file was created
@@ -238,7 +248,6 @@ def test_no_warnings_or_errors():
 
         # Check for expected info messages only (no warnings or errors)
         stderr_lower = result.stderr.lower()
-        stdout_lower = result.stdout.lower()
 
         # Should not contain error messages
         assert "error" not in stderr_lower, f"Unexpected error in output: {result.stderr}"  # nosec
@@ -268,13 +277,15 @@ def test_chatgpt_compatibility():
     <div class="message-content">Hello, can you help me with Python?</div>
 </div>
 <div data-message-author-role="assistant">
-    <div class="message-content">Of course! I'd be happy to help you with Python. What do you need assistance with?</div>
+    <div class="message-content">Of course! I'd be happy to help you with Python. """
+        """What do you need assistance with?</div>
 </div>
 <div data-message-author-role="user">
     <div class="message-content">How do I create a list?</div>
 </div>
 <div data-message-author-role="assistant">
-    <div class="message-content">You can create a list in Python using square brackets: <code>my_list = [1, 2, 3]</code></div>
+    <div class="message-content">You can create a list in Python using square brackets: """
+        """<code>my_list = [1, 2, 3]</code></div>
 </div>
 </body>
 </html>"""
@@ -295,7 +306,10 @@ def test_chatgpt_compatibility():
         # Check exit code
         assert (  # nosec
             result.returncode == 0
-        ), f"CLI failed with exit code {result.returncode}:\nstdout: {result.stdout}\nstderr: {result.stderr}"
+        ), (
+            f"CLI failed with exit code {result.returncode}:\n"
+            f"stdout: {result.stdout}\nstderr: {result.stderr}"
+        )
         print("✓ CLI executed successfully")
 
         # Check that output file was created
