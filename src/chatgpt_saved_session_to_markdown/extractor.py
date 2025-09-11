@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import base64
+import codecs
 import locale
 import logging
 import os
@@ -179,9 +180,9 @@ def _get_email_charset_or_error(message: Message, context: str) -> str:
     if charset:
         # Validate that the charset is usable
         try:
-            "test".encode(charset)
+            codecs.lookup(charset)
             return charset
-        except (LookupError, ValueError) as exc:
+        except LookupError as exc:
             raise ValueError(f"Invalid charset '{charset}' in {context}") from exc
     
     # Per RFC standards, default to US-ASCII for text content if no charset specified
@@ -195,6 +196,9 @@ def _get_email_charset_or_error(message: Message, context: str) -> str:
 def _extract_and_decode_payload(message: Message, log_context: str) -> bytes:
     """Extract and decode payload from email message with proper charset handling.
     
+    Uses Message.get_payload(decode=True) to automatically handle Content-Transfer-Encoding
+    decoding as recommended by the email library API.
+    
     Args:
         message: Email message object
         log_context: Context string for error logging
@@ -203,28 +207,25 @@ def _extract_and_decode_payload(message: Message, log_context: str) -> bytes:
         Decoded payload bytes
         
     Raises:
-        ValueError: If charset cannot be determined or is invalid
+        ValueError: If payload cannot be extracted or decoded
     """
-    # Get raw payload and Content-Transfer-Encoding
-    raw_payload = message.get_payload(decode=False)
-    if isinstance(raw_payload, str):
-        # Get charset with error handling - no UTF-8 fallback
-        charset = _get_email_charset_or_error(message, log_context)
-        try:
-            raw_payload = raw_payload.encode(charset)
-        except UnicodeEncodeError as exc:
-            raise ValueError(f"Cannot encode payload with charset '{charset}' in {log_context}") from exc
-    elif raw_payload is None:
-        raw_payload = b""
-    
-    encoding = message.get("Content-Transfer-Encoding")
-    
-    # Use robust Content-Transfer-Encoding decoder
     try:
-        return _decode_content_transfer_encoding(raw_payload, encoding)
-    except RuntimeError as exc:
-        LOGGER.error("Content-Transfer-Encoding decode error in %s: %s", log_context, exc)
-        raise
+        # Use the email library's built-in Content-Transfer-Encoding decoding
+        payload = message.get_payload(decode=True)
+        
+        if payload is None:
+            return b""
+        
+        # get_payload(decode=True) should return bytes for binary data
+        if isinstance(payload, bytes):
+            return payload
+        
+        # If we get a string, something went wrong - this shouldn't happen with decode=True
+        raise ValueError(f"Unexpected string payload from get_payload(decode=True) in {log_context}")
+        
+    except Exception as exc:
+        # Handle any decoding errors from the email library
+        raise ValueError(f"Failed to decode payload in {log_context}: {exc}") from exc
 
 
 # --------------------------------------------------------------------------- #
