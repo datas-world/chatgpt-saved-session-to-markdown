@@ -449,9 +449,9 @@ def _process_single(path: Path, outdir: Path | None) -> list[Path]:
             system_encoding = _get_system_encoding()
             try:
                 out.write_text(md, encoding=system_encoding)
-            except UnicodeEncodeError:
+            except UnicodeEncodeError as exc:
                 # If system encoding fails, raise error instead of falling back
-                raise RuntimeError(f"Cannot write output file {out} with system encoding {system_encoding}")
+                raise RuntimeError(f"Cannot write output file {out} with system encoding {system_encoding}") from exc
             produced.append(out)
 
     elif suffix in (".html", ".htm"):
