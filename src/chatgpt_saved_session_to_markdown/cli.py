@@ -17,13 +17,32 @@ from .extractor import process_many
 LOGGER = logging.getLogger(__name__)
 
 
-def _setup_logging(verbose: int, quiet: int, log_level: str | None) -> None:
+class _WarningTracker(logging.Handler):
+    """Handler to track if any warnings were logged."""
+    
+    def __init__(self) -> None:
+        super().__init__()
+        self.warnings_shown = False
+    
+    def emit(self, record: logging.LogRecord) -> None:
+        if record.levelno >= logging.WARNING:
+            self.warnings_shown = True
+
+
+# Global warning tracker instance
+_warning_tracker = _WarningTracker()
+
+
+def _setup_logging(verbose: int, quiet: int, log_level: str | None) -> int:
     """Configure logging level based on verbosity/quiet count or explicit log level.
     
     Args:
         verbose: Number of -v/--verbose flags (increases verbosity)
         quiet: Number of -q/--quiet flags (decreases verbosity)
         log_level: Explicit log level name or integer string
+        
+    Returns:
+        The final log level that was set
     """
     # Start with explicit log level or Python default (WARNING)
     if log_level is not None:
@@ -37,8 +56,8 @@ def _setup_logging(verbose: int, quiet: int, log_level: str | None) -> None:
     # Apply verbosity adjustment with 10-point steps (like predefined levels)
     level = base_level - (net_verbosity * 10)
     
-    # Ensure level stays within reasonable bounds
-    level = max(logging.DEBUG, min(logging.CRITICAL, level))
+    # Ensure level is non-negative
+    level = max(0, level)
     
     logging.basicConfig(
         level=level, 
@@ -46,9 +65,15 @@ def _setup_logging(verbose: int, quiet: int, log_level: str | None) -> None:
         force=True  # Override any existing configuration
     )
     
+    # Add warning tracker to root logger
+    root_logger = logging.getLogger()
+    root_logger.addHandler(_warning_tracker)
+    
     # Log the final log level at INFO level
     logger = logging.getLogger(__name__)
     logger.info("Log level set to %d (%s)", level, logging.getLevelName(level))
+    
+    return level
 
 
 def _parse_log_level(log_level_str: str) -> int:
@@ -131,7 +156,7 @@ def main() -> None:
     args = parser.parse_args()
 
     try:
-        _setup_logging(args.verbose, args.quiet, args.log_level)
+        log_level = _setup_logging(args.verbose, args.quiet, args.log_level)
     except ValueError as exc:
         print(f"Error: {exc}", file=sys.stderr)
         sys.exit(1)
@@ -146,7 +171,7 @@ def main() -> None:
                    len(args.inputs), ", ".join(args.inputs))
         produced = process_many(args.inputs, args.outdir, (args.jobs or 0))
     except Exception as exc:  # surface clear non-zero on any batch failure
-        LOGGER.critical("Processing failed: %s", exc, exc_info=True)
+        LOGGER.critical("Processing failed: %s", exc, exc_info=exc)
         sys.exit(1)
 
     if not produced:
@@ -157,6 +182,14 @@ def main() -> None:
                len(args.inputs), len(produced))
     for p in produced:
         LOGGER.info("Output: %s", str(p))
+    
+    # Show debug level suggestion if warnings were shown and log level is more quiet than DEBUG
+    if _warning_tracker.warnings_shown and log_level > logging.DEBUG:
+        LOGGER.info(
+            "Issues detected during processing. For detailed diagnostics, rerun with DEBUG level: "
+            "add -vv or -l DEBUG. To report issues: "
+            "https://github.com/datas-world/chatgpt-saved-session-to-markdown/issues/new"
+        )
 
 
 def app() -> None:
