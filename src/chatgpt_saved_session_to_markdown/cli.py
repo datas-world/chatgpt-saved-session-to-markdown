@@ -14,15 +14,82 @@ from pathlib import Path
 from . import __version__
 from .extractor import process_many
 
+LOGGER = logging.getLogger(__name__)
 
-def _setup_logging(verbose: int) -> None:
-    """Configure logging level based on verbosity count."""
-    level = logging.WARNING
-    if verbose == 1:
-        level = logging.INFO
-    elif verbose >= 2:
-        level = logging.DEBUG
-    logging.basicConfig(level=level, format="%(levelname)s: %(message)s")
+
+def _setup_logging(verbose: int, quiet: int, log_level: str | None) -> None:
+    """Configure logging level based on verbosity/quiet count or explicit log level.
+    
+    Args:
+        verbose: Number of -v/--verbose flags (increases verbosity)
+        quiet: Number of -q/--quiet flags (decreases verbosity)
+        log_level: Explicit log level name or integer string
+    """
+    # If explicit log level is provided, use it
+    if log_level is not None:
+        level = _parse_log_level(log_level)
+    else:
+        # Calculate net verbosity (verbose flags minus quiet flags)
+        net_verbosity = verbose - quiet
+        
+        # Map net verbosity to log levels
+        if net_verbosity <= -2:
+            level = logging.CRITICAL
+        elif net_verbosity == -1:
+            level = logging.ERROR
+        elif net_verbosity == 0:
+            level = logging.WARNING  # default
+        elif net_verbosity == 1:
+            level = logging.INFO
+        else:  # net_verbosity >= 2
+            level = logging.DEBUG
+    
+    logging.basicConfig(
+        level=level, 
+        format="%(levelname)s: %(message)s",
+        force=True  # Override any existing configuration
+    )
+
+
+def _parse_log_level(log_level_str: str) -> int:
+    """Parse log level from string (name or integer).
+    
+    Args:
+        log_level_str: Log level as string (name like 'DEBUG' or integer like '10')
+        
+    Returns:
+        Log level as integer
+        
+    Raises:
+        ValueError: If log level is invalid
+    """
+    # Try parsing as integer first
+    try:
+        level_int = int(log_level_str)
+        if level_int < 0:
+            raise ValueError("Log level must be non-negative")
+        return level_int
+    except ValueError:
+        pass
+    
+    # Try parsing as log level name
+    level_name = log_level_str.upper()
+    level_map = {
+        'CRITICAL': logging.CRITICAL,
+        'ERROR': logging.ERROR, 
+        'WARNING': logging.WARNING,
+        'INFO': logging.INFO,
+        'DEBUG': logging.DEBUG,
+    }
+    
+    if level_name in level_map:
+        return level_map[level_name]
+    
+    raise ValueError(
+        f"Invalid log level '{log_level_str}'. "
+        f"Use log level names (CRITICAL, ERROR, WARNING, INFO, DEBUG) "
+        f"or non-negative integers."
+    )
 
 
 def main() -> None:
@@ -44,30 +111,52 @@ def main() -> None:
         "--verbose",
         action="count",
         default=0,
-        help="Increase verbosity (-v: INFO, -vv: DEBUG).",
+        help="Increase verbosity (-v: INFO, -vv: DEBUG). Can be applied multiple times.",
+    )
+    parser.add_argument(
+        "-q",
+        "--quiet",
+        action="count",
+        default=0,
+        help="Decrease verbosity (-q: ERROR, -qq: CRITICAL). Can be applied multiple times.",
+    )
+    parser.add_argument(
+        "-l",
+        "--log-level",
+        type=str,
+        help="Set log level explicitly (CRITICAL, ERROR, WARNING, INFO, DEBUG) or non-negative integer.",
     )
     parser.add_argument("--version", action="version", version=__version__)
 
     args = parser.parse_args()
 
-    _setup_logging(args.verbose)
+    try:
+        _setup_logging(args.verbose, args.quiet, args.log_level)
+    except ValueError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        sys.exit(1)
 
-    # If no files are given, exit successfully
+    # If no files are given, exit successfully  
     if not args.inputs:
+        LOGGER.debug("No input files provided, exiting successfully")
         sys.exit(0)
 
     try:
+        LOGGER.info("Starting processing of %d input pattern(s): %s", 
+                   len(args.inputs), ", ".join(args.inputs))
         produced = process_many(args.inputs, args.outdir, (args.jobs or 0))
     except Exception as exc:  # surface clear non-zero on any batch failure
-        logging.error("%s", exc)
+        LOGGER.critical("Processing failed: %s", exc, exc_info=True)
         sys.exit(1)
 
     if not produced:
-        logging.error("No outputs were produced.")
+        LOGGER.critical("No outputs were produced")
         sys.exit(1)
 
+    LOGGER.info("Successfully processed %d input(s), produced %d output file(s)", 
+               len(args.inputs), len(produced))
     for p in produced:
-        print(str(p))
+        LOGGER.info("Output: %s", str(p))
 
 
 def app() -> None:
