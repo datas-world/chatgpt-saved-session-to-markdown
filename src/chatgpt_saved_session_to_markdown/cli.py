@@ -25,30 +25,30 @@ def _setup_logging(verbose: int, quiet: int, log_level: str | None) -> None:
         quiet: Number of -q/--quiet flags (decreases verbosity)
         log_level: Explicit log level name or integer string
     """
-    # If explicit log level is provided, use it
+    # Start with explicit log level or Python default (WARNING)
     if log_level is not None:
-        level = _parse_log_level(log_level)
+        base_level = _parse_log_level(log_level)
     else:
-        # Calculate net verbosity (verbose flags minus quiet flags)
-        net_verbosity = verbose - quiet
-        
-        # Map net verbosity to log levels
-        if net_verbosity <= -2:
-            level = logging.CRITICAL
-        elif net_verbosity == -1:
-            level = logging.ERROR
-        elif net_verbosity == 0:
-            level = logging.WARNING  # default
-        elif net_verbosity == 1:
-            level = logging.INFO
-        else:  # net_verbosity >= 2
-            level = logging.DEBUG
+        base_level = logging.WARNING  # Python default
+    
+    # Calculate net verbosity (verbose flags minus quiet flags)
+    net_verbosity = verbose - quiet
+    
+    # Apply verbosity adjustment with 10-point steps (like predefined levels)
+    level = base_level - (net_verbosity * 10)
+    
+    # Ensure level stays within reasonable bounds
+    level = max(logging.DEBUG, min(logging.CRITICAL, level))
     
     logging.basicConfig(
         level=level, 
         format="%(levelname)s: %(message)s",
         force=True  # Override any existing configuration
     )
+    
+    # Log the final log level at INFO level
+    logger = logging.getLogger(__name__)
+    logger.info("Log level set to %d (%s)", level, logging.getLevelName(level))
 
 
 def _parse_log_level(log_level_str: str) -> int:
