@@ -195,7 +195,7 @@ def _get_email_charset_or_error(message: Message, context: str) -> str:
             LOGGER.debug("Charset '%s' validated successfully", charset)
             return charset
         except LookupError as exc:
-            LOGGER.error("Invalid charset '%s' in %s: %s", charset, context, exc, exc_info=True)
+            LOGGER.error("Invalid charset '%s' in %s", charset, context, exc_info=exc)
             raise ValueError(f"Invalid charset '{charset}' in {context}") from exc
 
     # Per RFC standards, default to US-ASCII for text content if no charset specified
@@ -252,7 +252,7 @@ def _extract_and_decode_payload(message: Message, log_context: str) -> bytes:
 
     except Exception as exc:
         # Handle any decoding errors from the email library
-        LOGGER.error("Failed to decode payload in %s: %s", log_context, exc, exc_info=True)
+        LOGGER.error("Failed to decode payload in %s", log_context, exc_info=exc)
         raise ValueError(f"Failed to decode payload in {log_context}: {exc}") from exc
 
 
@@ -275,7 +275,7 @@ def _build_resource_map_from_mhtml(
             msg = BytesParser(policy=policy.default).parse(f)
         LOGGER.debug("MHTML file parsed successfully")
     except Exception as exc:
-        LOGGER.error("Failed to parse MHTML file %s: %s", path, exc, exc_info=True)
+        LOGGER.error("Failed to parse MHTML file %s", path, exc_info=exc)
         raise ValueError(f"MHTML parsing failed for {path}: {exc}") from exc
     
     if msg.is_multipart():
@@ -296,8 +296,8 @@ def _build_resource_map_from_mhtml(
                 payload = _extract_and_decode_payload(sub, f"{path.name} part {i}")
                 LOGGER.debug("MHTML part %d payload extracted: %d bytes", i, len(payload))
             except Exception as exc:
-                LOGGER.error("Failed to extract payload from MHTML part %d in %s: %s", 
-                           i, path, exc, exc_info=True)
+                LOGGER.error("Failed to extract payload from MHTML part %d in %s", 
+                           i, path, exc_info=exc)
                 raise
 
             if ctype.startswith("text/html"):
@@ -311,8 +311,8 @@ def _build_resource_map_from_mhtml(
                                i, charset, len(text))
                 except (ValueError, UnicodeDecodeError) as exc:
                     # Strict error handling - raise instead of falling back
-                    LOGGER.error("HTML part encoding error in %s part %d: %s", 
-                               path, i, exc, exc_info=True)
+                    LOGGER.error("HTML part encoding error in %s part %d", 
+                               path, i, exc_info=exc)
                     raise ValueError(f"HTML part encoding error in {path.name}: {exc}") from exc
             else:
                 # Process as resource
@@ -342,8 +342,8 @@ def _build_resource_map_from_mhtml(
                 payload = _extract_and_decode_payload(msg, path.name)
                 LOGGER.debug("Single-part payload extracted: %d bytes", len(payload))
             except Exception as exc:
-                LOGGER.error("Failed to extract payload from single-part MHTML %s: %s", 
-                           path, exc, exc_info=True)
+                LOGGER.error("Failed to extract payload from single-part MHTML %s", 
+                           path, exc_info=exc)
                 raise
 
             # Get charset with strict error handling - no fallbacks
@@ -355,7 +355,7 @@ def _build_resource_map_from_mhtml(
                            charset, len(html_text))
             except (ValueError, UnicodeDecodeError) as exc:
                 # Strict error handling - raise instead of falling back
-                LOGGER.error("Main HTML encoding error in %s: %s", path, exc, exc_info=True)
+                LOGGER.error("Main HTML encoding error in %s", path, exc_info=exc)
                 raise ValueError(f"Main HTML encoding error in {path.name}: {exc}") from exc
         else:
             LOGGER.warning("Single-part MHTML message is not HTML: %s", msg.get_content_type())
@@ -807,7 +807,7 @@ def _pdf_to_text(path: Path) -> tuple[str, int]:
         reader = pypdf.PdfReader(str(path))
         LOGGER.debug("PDF reader initialized successfully")
     except Exception as exc:
-        LOGGER.error("Failed to initialize PDF reader for %s: %s", path, exc, exc_info=True)
+        LOGGER.error("Failed to initialize PDF reader for %s", path, exc_info=exc)
         raise RuntimeError(f"PDF reader initialization failed for {path}: {exc}") from exc
     
     LOGGER.debug("PDF has %d pages", len(reader.pages))
@@ -819,8 +819,8 @@ def _pdf_to_text(path: Path) -> tuple[str, int]:
             txt = page.extract_text() or ""
             LOGGER.debug("Page %d text extraction: %d chars", i+1, len(txt))
         except Exception as exc:
-            LOGGER.warning("Failed to extract text from page %d in %s: %s", 
-                         i+1, path, exc, exc_info=True)
+            LOGGER.warning("Failed to extract text from page %d in %s", 
+                         i+1, path, exc_info=exc)
             txt = ""
         if txt.strip():
             pages.append(txt.strip())
@@ -859,7 +859,7 @@ def _process_single(path: Path, outdir: Path | None) -> list[Path]:
                     LOGGER.debug("MHTML resources: %s", list(resources.keys())[:10])  # Log first 10 resource keys
                 
             except Exception as exc:
-                LOGGER.error("Failed to parse MHTML file %s: %s", path, exc, exc_info=True)
+                LOGGER.error("Failed to parse MHTML file %s", path, exc_info=exc)
                 raise RuntimeError(f"MHTML parsing failed for {path}: {exc}") from exc
             
             if not html_parts:
@@ -877,8 +877,8 @@ def _process_single(path: Path, outdir: Path | None) -> list[Path]:
                         html, resources=resources, log_prefix=f"[{path.name} part {i}] "
                     )
                 except Exception as exc:
-                    LOGGER.error("Dialogue extraction failed for %s part %d: %s", 
-                               path, i, exc, exc_info=True)
+                    LOGGER.error("Dialogue extraction failed for %s part %d", 
+                               path, i, exc_info=exc)
                     raise RuntimeError(f"Dialogue extraction failed for {path} part {i}: {exc}") from exc
                 
                 if not md.strip():
@@ -895,8 +895,8 @@ def _process_single(path: Path, outdir: Path | None) -> list[Path]:
                     LOGGER.info("Successfully wrote MHTML part %d to: %s", i, out)
                 except UnicodeEncodeError as exc:
                     # If system encoding fails, raise error instead of falling back
-                    LOGGER.critical("Cannot write output file %s with system encoding %s: %s", 
-                                   out, system_encoding, exc, exc_info=True)
+                    LOGGER.critical("Cannot write output file %s with system encoding %s", 
+                                   out, system_encoding, exc_info=exc)
                     raise RuntimeError(
                         f"Cannot write output file {out} with system encoding {system_encoding}"
                     ) from exc
@@ -915,8 +915,8 @@ def _process_single(path: Path, outdir: Path | None) -> list[Path]:
                 LOGGER.debug("Successfully read HTML file with encoding %s: %d chars", 
                            system_encoding, len(html))
             except UnicodeDecodeError as exc:
-                LOGGER.critical("Cannot read HTML file %s with system encoding %s: %s", 
-                               path, system_encoding, exc, exc_info=True)
+                LOGGER.critical("Cannot read HTML file %s with system encoding %s", 
+                               path, system_encoding, exc_info=exc)
                 raise ValueError(
                     f"Cannot read HTML file {path} with system encoding {system_encoding}: {exc}"
                 ) from exc
@@ -926,8 +926,8 @@ def _process_single(path: Path, outdir: Path | None) -> list[Path]:
             try:
                 md = dialogue_html_to_md(html, resources=None, log_prefix=f"[{path.name}] ")
             except Exception as exc:
-                LOGGER.error("Dialogue extraction failed for HTML file %s: %s", 
-                           path, exc, exc_info=True)
+                LOGGER.error("Dialogue extraction failed for HTML file %s", 
+                           path, exc_info=exc)
                 raise RuntimeError(f"Dialogue extraction failed for {path}: {exc}") from exc
             
             if not md.strip():
@@ -942,8 +942,8 @@ def _process_single(path: Path, outdir: Path | None) -> list[Path]:
                 out.write_text(md, encoding=system_encoding)
                 LOGGER.info("Successfully wrote HTML output to: %s", out)
             except UnicodeEncodeError as exc:
-                LOGGER.critical("Cannot write output file %s with system encoding %s: %s", 
-                               out, system_encoding, exc, exc_info=True)
+                LOGGER.critical("Cannot write output file %s with system encoding %s", 
+                               out, system_encoding, exc_info=exc)
                 raise RuntimeError(
                     f"Cannot write output file {out} with system encoding {system_encoding}"
                 ) from exc
@@ -957,7 +957,7 @@ def _process_single(path: Path, outdir: Path | None) -> list[Path]:
                 text, pages = _pdf_to_text(path)
                 LOGGER.info("PDF text extraction completed: %d pages, %d chars", pages, len(text))
             except Exception as exc:
-                LOGGER.error("PDF text extraction failed for %s: %s", path, exc, exc_info=True)
+                LOGGER.error("PDF text extraction failed for %s", path, exc_info=exc)
                 raise RuntimeError(f"PDF extraction failed for {path}: {exc}") from exc
             
             _warn_better_format_guess_for_pdf(pages_extracted=pages, text_len=len(text), path=path)
@@ -975,8 +975,8 @@ def _process_single(path: Path, outdir: Path | None) -> list[Path]:
                 out.write_text(text.strip() + "\n", encoding=system_encoding)
                 LOGGER.info("Successfully wrote PDF output to: %s", out)
             except UnicodeEncodeError as exc:
-                LOGGER.critical("Cannot write output file %s with system encoding %s: %s", 
-                               out, system_encoding, exc, exc_info=True)
+                LOGGER.critical("Cannot write output file %s with system encoding %s", 
+                               out, system_encoding, exc_info=exc)
                 raise RuntimeError(
                     f"Cannot write output file {out} with system encoding {system_encoding}"
                 ) from exc
@@ -989,7 +989,7 @@ def _process_single(path: Path, outdir: Path | None) -> list[Path]:
     except Exception as exc:
         # Re-raise with additional context, but don't double-log
         if not isinstance(exc, RuntimeError):
-            LOGGER.error("Unexpected error processing file %s: %s", path, exc, exc_info=True)
+            LOGGER.error("Unexpected error processing file %s", path, exc_info=exc)
         raise
 
     LOGGER.info("File processing completed successfully: %s -> %d output(s)", 
@@ -1113,7 +1113,7 @@ def process_many(inputs: Sequence[str], outdir: Path | None, jobs: int) -> list[
                 failure_msg = f"{src}: {exc}"
                 failures.append(failure_msg)
                 LOGGER.error("Processing failed (%d/%d): %s", 
-                           completed_count, len(files), src, exc_info=True)
+                           completed_count, len(files), src, exc_info=exc)
     
     if failures:
         LOGGER.critical("Batch processing completed with %d failures out of %d files", 

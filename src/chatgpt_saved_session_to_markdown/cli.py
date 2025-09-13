@@ -92,7 +92,7 @@ def _parse_log_level(log_level_str: str) -> int:
     try:
         level_int = int(log_level_str)
         if level_int < 0:
-            raise ValueError("Log level must be non-negative")
+            raise ValueError(f"Log level must be non-negative, got {level_int}")
         return level_int
     except ValueError:
         pass
@@ -163,7 +163,7 @@ def main() -> None:
 
     # If no files are given, exit successfully  
     if not args.inputs:
-        LOGGER.debug("No input files provided, exiting successfully")
+        LOGGER.info("No input files provided, exiting successfully")
         sys.exit(0)
 
     try:
