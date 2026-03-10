@@ -8,12 +8,12 @@ updates:
     directory: "/"
     schedule:
       interval: "daily"
-    labels: ["dependencies", "security"]
+    labels: ["auto:dependencies", "security"]
     reviewers: ["torsknod2"]
 
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "daily"
-    labels: ["dependencies", "ci"]
+    labels: ["auto:dependencies", "type:ci"]
     reviewers: ["torsknod2"]
