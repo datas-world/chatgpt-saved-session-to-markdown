@@ -1,21 +1,36 @@
-# Copyright (C) 2025 Torsten Knodt and contributors
-# GNU General Public License
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (C) 2026 Torsten Knodt
 
 version: 2
 updates:
-  - package-ecosystem: "pip"
-    directory: "/"
+  - package-ecosystem: github-actions
+    directory: /
     schedule:
-      interval: "daily"
+      interval: daily
     open-pull-requests-limit: 1
-    labels: ["auto:dependencies", "security"]
-    reviewers: ["torsknod2"]
-
-  - package-ecosystem: "github-actions"
-    directory: "/"
+    assignees:
+      - torsknod2
+    reviewers:
+      - copilot
+      - torsknod2
+    labels:
+      - "type:ci"
+      - "auto:bot"
+    commit-message:
+      prefix: "ci"
+  - package-ecosystem: pip
+    directory: /
     schedule:
-      interval: "daily"
+      interval: daily
     open-pull-requests-limit: 1
-    labels: ["auto:dependencies", "type:ci"]
-    reviewers: ["torsknod2"]
+    assignees:
+      - torsknod2
+    reviewers:
+      - copilot
+      - torsknod2
+    labels:
+      - "auto:dependencies"
+      - "auto:bot"
+      - "lang:python"
+    commit-message:
+      prefix: "build(deps)"
