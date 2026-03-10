@@ -8,6 +8,7 @@ updates:
     directory: "/"
     schedule:
       interval: "daily"
+    open-pull-requests-limit: 1
     labels: ["auto:dependencies", "security"]
     reviewers: ["torsknod2"]
 
@@ -15,5 +16,6 @@ updates:
     directory: "/"
     schedule:
       interval: "daily"
+    open-pull-requests-limit: 1
     labels: ["auto:dependencies", "type:ci"]
     reviewers: ["torsknod2"]
