@@ -1,0 +1,27 @@
+# Copyright (C) 2025 Torsten Knodt and contributors
+# GNU General Public License
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+name: CodeQL
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    - cron: '0 8 * * 6'  # Weekly, Saturdays 08:00 UTC
+
+permissions: {}
+
+jobs:
+  codeql:
+    uses: datas-world/.github/.github/workflows/reusable-codeql.yml@8352083f09ed1518a0e6fb071d229ed7ed6b73a6  # main
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    with:
+      language: python
+      build-mode: none
+
