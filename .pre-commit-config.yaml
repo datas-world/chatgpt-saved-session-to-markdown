@@ -2,6 +2,13 @@
 # GNU General Public License
 # SPDX-License-Identifier: GPL-3.0-or-later
 
+ci:
+  autofix_commit_msg: "chore(pre-commit): auto fixes from pre-commit.ci hooks"
+  autoupdate_commit_msg: "chore(pre-commit): update hook revisions"
+  autoupdate_schedule: weekly
+  skip:  # pip-audit: needs project deps installed; run locally
+  - pip-audit
+
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
