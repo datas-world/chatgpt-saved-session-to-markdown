@@ -1,0 +1,45 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# !! MANAGED FILE -- do not edit this copy directly !!
+# Synced from datas-world/.github -- this file is replaced on every sync run.
+# To propose changes, open a PR against the source instead:
+# https://github.com/datas-world/.github/blob/main/.github/workflow-stubs/pr-lint.yml
+
+name: PR Lint
+
+# Calls the shared pr-lint reusable workflow from datas-world/.github.
+#
+# Rules enforced:
+#   - Draft PRs must have a '[WIP] ' title prefix.
+#   - Title (with any '[WIP] ' stripped) must follow Conventional Commits.
+#   - Scope is required; subject must start with lowercase.
+#   - A sticky comment is posted on failure and removed on success.
+#
+# Full specification:
+#   https://github.com/datas-world/.github/blob/main/.github/workflows/pr-lint.yml
+#   https://github.com/datas-world/.github/blob/main/.github/instructions/conventional-commits.instructions.md
+
+on:
+  pull_request:
+    types:
+      - opened
+      - edited
+      - reopened
+      - synchronize
+      - converted_to_draft
+      - ready_for_review
+
+permissions: {}
+
+jobs:
+  pr-lint:
+    uses: datas-world/.github/.github/workflows/reusable-pr-lint.yml@8352083f09ed1518a0e6fb071d229ed7ed6b73a6  # main
+    permissions:
+      pull-requests: write
+      statuses: write
+    # To enforce a per-repo scope allowlist uncomment and customise:
+    # with:
+    #   scopes: |
+    #     api
+    #     cli
+    #     core
