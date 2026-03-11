@@ -1,121 +1,71 @@
-<!--
-Copyright (C) 2025 Torsten Knodt and contributors
-GNU General Public License
-SPDX-License-Identifier: GPL-3.0-or-later
--->
+# Copilot Instructions -- datas-world/.github
 
-# GitHub Copilot Development Instructions
+Organisation-level GitHub infrastructure: reusable workflows, community health files,
+and AI agent support files.
 
-This document provides mandatory development guidelines for GitHub Copilot when working on this project. These instructions ensure code quality, maintainability, and compliance with project standards.
+**See also:** [AGENTS.md](../AGENTS.md) ? [.github/AGENTS.md](AGENTS.md)
 
-## Quality Assurance Requirements
+## What this repository contains
 
-### Pre-commit Compliance
+- **Community health files** at the repo root: `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`,
+  `SECURITY.md`, `README.md`, `LICENSE`
+- **Reusable workflows** in `.github/workflows/` -- all triggered by `on: workflow_call`
+- **Issue templates** in `.github/ISSUE_TEMPLATE/`
+- **AI agent files** in `.github/` (instructions, agents, prompts, this file)
 
-GitHub Copilot **SHALL** not consider any development task completed until all [`pre-commit`](https://pre-commit.com/) checks are passing successfully. This includes but is not limited to:
+There is **no application code** here -- no TypeScript, no Python, no build step, no tests.
 
-- [Code formatting with Black](https://black.readthedocs.io/)
-- [isort](https://pycqa.github.io/isort/) for import sorting
-- [Linting](https://docs.astral.sh/ruff/) with [Ruff](https://docs.astral.sh/ruff/)
-- [Documentation style](http://www.pydocstyle.org/) with [pydocstyle](http://www.pydocstyle.org/)
-- [Documentation coverage](https://interrogate.readthedocs.io/) with [interrogate](https://interrogate.readthedocs.io/)
-- [Security scanning](https://bandit.readthedocs.io/) with [Bandit](https://bandit.readthedocs.io/)
-- [License compliance](https://reuse.software/) with [REUSE](https://reuse.software/)
-- [Dependency security](https://pypa.github.io/pip-audit/) with [pip-audit](https://pypa.github.io/pip-audit/)
+## Workflow authoring rules
 
-### Prohibited Actions
+- **SHA-pin every `uses:`**: `actions/checkout@<40-char-SHA>  # v4.2.2`
+- **`permissions: {}`** at workflow level; each job declares its own minimum.
+- **`runs-on` for API-only jobs**: `runs-on: ubuntu-slim`
+- **CodeQL and npm jobs** stay on `ubuntu-latest` -- they need specific tooling and
+  may exceed the 15-minute slim limit.
+- **Job `name:` is the status-check context** -- never rename without updating branch
+  protection in all calling repos.
+- Every reusable workflow **must** declare `on: workflow_call` and
+  `permissions: {}` at the workflow level.
+- For full authoring rules, runner selection details, and the ubuntu-slim pre-installed
+  tool table see `.github/instructions/github-actions.instructions.md`.
 
-The following actions are **STRICTLY FORBIDDEN** without explicit approval from a project maintainer:
+## Community health files
 
-1. **Disabling or weakening pre-commit checks** - All quality gates must remain active
-2. **Modifying test configurations** to reduce coverage or skip tests
-3. **Bypassing security checks** or ignoring security warnings
-4. **Removing or weakening linting rules** without documented justification
-5. **Altering files in `tests/data`** - Test data files (except `*.license` files) must not be modified to suppress warnings or errors
+- `CODE_OF_CONDUCT.md` includes an explicit scope clause: it does **not** apply to
+  private repositories, personal projects, or proprietary work. Preserve this clause.
+- `SECURITY.md` must never promise specific response timelines -- the org-wide policy
+  is "no commitment to response timeline".
+- `CONTRIBUTING.md` is access-controlled -- never use open-source-style language like
+  "anyone can contribute" or "fork and send a PR".
+- `README.md` is the org profile shown on `github.com/datas-world`. Keep it accurate
+  and current.
 
-## Error and Warning Management
+## Conventional Commits
 
-### Suppression Strategy
+All commit messages follow [Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/).
+Valid types: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`,
+`chore`, `revert`. Breaking changes: `feat!:` or `BREAKING CHANGE:` footer.
 
-When addressing warnings or errors, proposals for suppression **SHALL** occur at the lowest possible level:
+**No `v` prefix** on any tag: `1.0.0`, not `v1.0.0`.
 
-1. **Inline suppression** - Use specific `# noqa` comments with error codes when justified
-2. **Function/class level** - Apply suppressions to the smallest possible scope
-3. **File level** - Only when the entire file requires the exception
-4. **Global level** - Never without maintainer approval
+## Milestone and topic workflows use TypeScript actions
 
-Example of proper inline suppression:
+`milestone-assign.yml` and `sync-topics-node.yml` delegate to private org actions
+(not inline shell). To upgrade either action, build a new orphan release commit
+in the action repo and update the SHA-pinned `uses:` line here.
 
-```python
-# This is acceptable for legitimate cases
-result = subprocess.run(command, shell=True)  # noqa: S602 # Intentional shell use for user input
-```
+| Workflow | Action repo | Current version |
+|---|---|---|
+| `milestone-assign.yml` | `datas-world/action-milestone-assign` | `0.1.0` |
+| `sync-topics-node.yml` | `datas-world/action-sync-topics-node` | `0.1.0` |
 
-### Test Failure Analysis
+SemVer bump logic: `breaking change` ? major, `enhancement` ? minor, all other labels ? patch.
+See the action repo for full implementation details and tests.
 
-When tests fail, a **deep root-cause analysis** is required following this process:
+## When you add a new reusable workflow
 
-1. **Determine failure type**:
-
-- Implementation error (code bug)
-- Test error (incorrect test assumptions)
-- Environment issue (dependency, configuration)
-
-2. **Document findings** in commit messages or pull request descriptions
-
-3. **Escalate decision** - The final determination of whether to fix implementation or modify tests **SHALL** be made by project maintainers
-
-## Standards and References
-
-All implemented solutions **SHALL** reference applicable standards with deep hyperlinks:
-
-- [PEP 8 - Style Guide for Python Code](https://peps.python.org/pep-0008/)
-- [PEP 257 - Docstring Conventions](https://peps.python.org/pep-0257/)
-- [Google Python Style Guide - Docstrings](https://google.github.io/styleguide/pyguide.html#38-comments-and-docstrings)
-- [SPDX License Identifier Guidelines](https://spdx.github.io/spdx-spec/v2.3/SPDX-license-identifier/)
-- [GNU General Public License v3.0](https://www.gnu.org/licenses/gpl-3.0.en.html)
-
-## Off-the-Shelf (COTS) Preference
-
-**STRICTLY prefer** established, well-maintained off-the-shelf software over custom implementations:
-
-### Preferred Tools and Libraries
-
-- **Code Quality**: [Black](https://black.readthedocs.io/), [Ruff](https://docs.astral.sh/ruff/), [isort](https://pycqa.github.io/isort/)
-- **Testing**: [pytest](https://docs.pytest.org/), [pytest-cov](https://pytest-cov.readthedocs.io/)
-- **Documentation**: [pydocstyle](http://www.pydocstyle.org/), [interrogate](https://interrogate.readthedocs.io/)
-- **Security**: [Bandit](https://bandit.readthedocs.io/), [pip-audit](https://pypa.github.io/pip-audit/)
-- **Web Parsing**: [BeautifulSoup4](https://www.crummy.com/software/BeautifulSoup/), [lxml](https://lxml.de/)
-- **CLI Framework**: [Typer](https://typer.tiangolo.com/)
-- **Markup Processing**: [markdownify](https://pypi.org/project/markdownify/)
-
-### Custom Implementation Criteria
-
-Custom implementations are only acceptable when:
-
-1. **No suitable off-the-shelf solution exists** for the specific use case
-2. **Performance requirements** cannot be met by existing solutions
-3. **Licensing constraints** prevent use of available alternatives
-4. **Maintainer approval** has been explicitly granted
-
-## Compliance Verification
-
-Before marking any task as complete:
-
-1. **Run full pre-commit suite**: `pre-commit run --all-files`
-2. **Execute test suite**: `python -m pytest`
-3. **Verify documentation**: Ensure all public APIs are documented
-4. **Check licensing**: Confirm SPDX headers are present and correct
-
-## Escalation Process
-
-When in doubt about any of these requirements:
-
-1. **Document the concern** in detail
-2. **Propose alternative approaches** with justification
-3. **Request maintainer review** before proceeding
-4. **Wait for explicit approval** before implementing controversial changes
-
-______________________________________________________________________
-
-**Note**: These instructions are binding for all GitHub Copilot interactions with this codebase. Non-compliance may result in rejected contributions and requests for complete rework.
+1. Add it to `.github/workflows/` following the SHA-pinning and permissions rules above.
+2. Update `AGENTS.md` (root) -- add it to the "Reusable workflow catalogue" table.
+3. Update `.github/AGENTS.md` -- document any new patterns it introduces.
+4. Update `.github/instructions/github-actions.instructions.md` if it uses new patterns.
+5. Consider whether a new `.github/prompts/*.prompt.md` would help callers.
