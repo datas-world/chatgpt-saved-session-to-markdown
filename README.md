@@ -8,12 +8,13 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 Convert saved ChatGPT sessions (`.html` / `.mhtml`) and **PDF prints** into clean **Markdown**.
 
-[![PyPI version](https://img.shields.io/pypi/v/chatgpt-saved-session-to-markdown.svg)](https://pypi.org/project/chatgpt-saved-session-to-markdown/)
-[![Python versions](https://img.shields.io/pypi/pyversions/chatgpt-saved-session-to-markdown.svg)](https://pypi.org/project/chatgpt-saved-session-to-markdown/)
-[![License: GPL v3+](https://img.shields.io/badge/License-GPLv3+-blue.svg)](LICENSE)
-[![CI](https://github.com/datas-world/chatgpt-saved-session-to-markdown/actions/workflows/ci.yml/badge.svg)](https://github.com/datas-world/chatgpt-saved-session-to-markdown/actions/workflows/ci.yml)
-[![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit)](.pre-commit-config.yaml)
-[![Dependabot](https://img.shields.io/badge/Dependabot-enabled-brightgreen.svg)](https://github.com/datas-world/chatgpt-saved-session-to-markdown/network/updates)
+[![PyPI version][pypi-badge]][pypi-url]
+[![Python versions][pyversions-badge]][pyversions-url]
+[![License: GPL v3+][license-badge]][license-url]
+[![CI][ci-badge]][ci-url]
+[![CodeQL][codeql-badge]][codeql-url]
+[![pre-commit][precommit-badge]][precommit-url]
+[![Dependabot][dependabot-badge]][dependabot-url]
 
 ## Features
 
@@ -31,3 +32,18 @@ pipx install chatgpt-saved-session-to-markdown
 # or
 pip install chatgpt-saved-session-to-markdown
 ```
+
+[pypi-badge]: https://badge.fury.io/py/chatgpt-saved-session-to-markdown.svg
+[pypi-url]: https://badge.fury.io/py/chatgpt-saved-session-to-markdown
+[pyversions-badge]: https://img.shields.io/pypi/pyversions/chatgpt-saved-session-to-markdown.svg
+[pyversions-url]: https://pypi.org/project/chatgpt-saved-session-to-markdown/
+[license-badge]: https://img.shields.io/badge/License-GPLv3+-blue.svg
+[license-url]: LICENSE
+[ci-badge]: https://github.com/datas-world/chatgpt-saved-session-to-markdown/actions/workflows/ci.yml/badge.svg?branch=main
+[ci-url]: https://github.com/datas-world/chatgpt-saved-session-to-markdown/actions/workflows/ci.yml
+[codeql-badge]: https://github.com/datas-world/chatgpt-saved-session-to-markdown/actions/workflows/codeql.yml/badge.svg?branch=main
+[codeql-url]: https://github.com/datas-world/chatgpt-saved-session-to-markdown/security/code-scanning
+[precommit-badge]: https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit
+[precommit-url]: .pre-commit-config.yaml
+[dependabot-badge]: https://img.shields.io/badge/Dependabot-enabled-brightgreen.svg
+[dependabot-url]: https://github.com/datas-world/chatgpt-saved-session-to-markdown/network/updates
