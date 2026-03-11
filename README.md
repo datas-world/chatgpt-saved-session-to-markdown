@@ -12,7 +12,6 @@ Convert saved ChatGPT sessions (`.html` / `.mhtml`) and **PDF prints** into clea
 [![Python versions](https://img.shields.io/pypi/pyversions/chatgpt-saved-session-to-markdown.svg)](https://pypi.org/project/chatgpt-saved-session-to-markdown/)
 [![License: GPL v3+](https://img.shields.io/badge/License-GPLv3+-blue.svg)](LICENSE)
 [![CI](https://github.com/datas-world/chatgpt-saved-session-to-markdown/actions/workflows/ci.yml/badge.svg)](https://github.com/datas-world/chatgpt-saved-session-to-markdown/actions/workflows/ci.yml)
-[![CodeQL](https://github.com/datas-world/chatgpt-saved-session-to-markdown/actions/workflows/codeql.yml/badge.svg)](https://github.com/datas-world/chatgpt-saved-session-to-markdown/actions/workflows/codeql.yml)
 [![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit)](.pre-commit-config.yaml)
 [![Dependabot](https://img.shields.io/badge/Dependabot-enabled-brightgreen.svg)](https://github.com/datas-world/chatgpt-saved-session-to-markdown/network/updates)
 
